@@ -1,75 +1,3 @@
-<!-- ONBOARDING -->
-<div class="screen" id="onboarding">
-  <div class="ob-slides">
-    <div class="ob-slide on" id="ob0">
-      <div class="ob-icon">🏦</div>
-      <div class="ob-title">Welcome to Atlantas</div>
-      <div class="ob-sub">Your modern banking experience. Secure, fast, and built for the future.</div>
-    </div>
-    <div class="ob-slide" id="ob1">
-      <div class="ob-icon">💸</div>
-      <div class="ob-title">Send & Receive Money</div>
-      <div class="ob-sub">Transfer funds instantly to anyone on the platform using their account number.</div>
-    </div>
-    <div class="ob-slide" id="ob2">
-      <div class="ob-icon">🔒</div>
-      <div class="ob-title">Bank-Grade Security</div>
-      <div class="ob-sub">Your account is protected with PIN verification, biometrics, and KYC identity checks.</div>
-    </div>
-    <div class="ob-slide" id="ob3">
-      <div class="ob-icon">🚀</div>
-      <div class="ob-title">You're All Set!</div>
-      <div class="ob-sub">Create your account or log in to get started with Atlantas.</div>
-    </div>
-  </div>
-  <div class="ob-dots">
-    <div class="ob-dot on" id="obd0"></div>
-    <div class="ob-dot" id="obd1"></div>
-    <div class="ob-dot" id="obd2"></div>
-    <div class="ob-dot" id="obd3"></div>
-  </div>
-  <div class="ob-actions">
-    <button class="ob-next" id="ob-next-btn" onclick="APP.obNext()">Get Started</button>
-    <button class="ob-skip" onclick="APP.obSkip()">Skip</button>
-  </div>
-</div>
-
-<!-- TRANSACTION PIN SCREEN -->
-<div class="screen" id="tx-pin-screen">
-  <div class="sub-topbar">
-    <div class="back-btn" id="pin-back-btn" onclick="APP.cancelTxPin()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg></div>
-    <h2>Enter PIN</h2>
-  </div>
-  <div style="padding:20px 24px 0;text-align:center;">
-    <div style="font-size:15px;color:var(--t2);margin-bottom:4px;" id="pin-screen-label">Confirm transaction with your PIN</div>
-    <div style="font-size:13px;color:var(--t3);margin-bottom:8px;" id="pin-screen-amt"></div>
-    <div class="pin-dots" id="pin-dots">
-      <div class="pin-dot" id="pd0"></div>
-      <div class="pin-dot" id="pd1"></div>
-      <div class="pin-dot" id="pd2"></div>
-      <div class="pin-dot" id="pd3"></div>
-    </div>
-    <div style="color:var(--er);font-size:13px;min-height:18px;margin-bottom:12px;" id="pin-err"></div>
-    <div class="pin-pad" id="pin-pad">
-      <button class="pin-key" onclick="APP.pinKey('1')">1</button>
-      <button class="pin-key" onclick="APP.pinKey('2')">2</button>
-      <button class="pin-key" onclick="APP.pinKey('3')">3</button>
-      <button class="pin-key" onclick="APP.pinKey('4')">4</button>
-      <button class="pin-key" onclick="APP.pinKey('5')">5</button>
-      <button class="pin-key" onclick="APP.pinKey('6')">6</button>
-      <button class="pin-key" onclick="APP.pinKey('7')">7</button>
-      <button class="pin-key" onclick="APP.pinKey('8')">8</button>
-      <button class="pin-key" onclick="APP.pinKey('9')">9</button>
-      <button class="pin-key empty"></button>
-      <button class="pin-key" onclick="APP.pinKey('0')">0</button>
-      <button class="pin-key del" onclick="APP.pinDel()">⌫</button>
-    </div>
-    <div style="margin-top:20px;">
-      <button style="background:none;border:none;color:var(--t2);font-size:13px;cursor:pointer;font-weight:600;" onclick="APP.cancelTxPin()">Cancel</button>
-    </div>
-  </div>
-</div>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -709,9 +637,80 @@ body::after{
 #toast.ok{background:rgba(22,163,74,.92);}
 #toast.er{background:rgba(220,38,38,.92);}
 </style>
-</style>
 </head>
 <body>
+
+<!-- ONBOARDING -->
+<div class="screen" id="onboarding">
+  <div class="ob-slides">
+    <div class="ob-slide on" id="ob0">
+      <div class="ob-icon">🏦</div>
+      <div class="ob-title">Welcome to Atlantas</div>
+      <div class="ob-sub">Your modern banking experience. Secure, fast, and built for the future.</div>
+    </div>
+    <div class="ob-slide" id="ob1">
+      <div class="ob-icon">💸</div>
+      <div class="ob-title">Send & Receive Money</div>
+      <div class="ob-sub">Transfer funds instantly to anyone on the platform using their account number.</div>
+    </div>
+    <div class="ob-slide" id="ob2">
+      <div class="ob-icon">🔒</div>
+      <div class="ob-title">Bank-Grade Security</div>
+      <div class="ob-sub">Your account is protected with PIN verification, biometrics, and KYC identity checks.</div>
+    </div>
+    <div class="ob-slide" id="ob3">
+      <div class="ob-icon">🚀</div>
+      <div class="ob-title">You're All Set!</div>
+      <div class="ob-sub">Create your account or log in to get started with Atlantas.</div>
+    </div>
+  </div>
+  <div class="ob-dots">
+    <div class="ob-dot on" id="obd0"></div>
+    <div class="ob-dot" id="obd1"></div>
+    <div class="ob-dot" id="obd2"></div>
+    <div class="ob-dot" id="obd3"></div>
+  </div>
+  <div class="ob-actions">
+    <button class="ob-next" id="ob-next-btn" onclick="APP.obNext()">Get Started</button>
+    <button class="ob-skip" onclick="APP.obSkip()">Skip</button>
+  </div>
+</div>
+
+<!-- TRANSACTION PIN SCREEN -->
+<div class="screen" id="tx-pin-screen">
+  <div class="sub-topbar">
+    <div class="back-btn" id="pin-back-btn" onclick="APP.cancelTxPin()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg></div>
+    <h2>Enter PIN</h2>
+  </div>
+  <div style="padding:20px 24px 0;text-align:center;">
+    <div style="font-size:15px;color:var(--t2);margin-bottom:4px;" id="pin-screen-label">Confirm transaction with your PIN</div>
+    <div style="font-size:13px;color:var(--t3);margin-bottom:8px;" id="pin-screen-amt"></div>
+    <div class="pin-dots" id="pin-dots">
+      <div class="pin-dot" id="pd0"></div>
+      <div class="pin-dot" id="pd1"></div>
+      <div class="pin-dot" id="pd2"></div>
+      <div class="pin-dot" id="pd3"></div>
+    </div>
+    <div style="color:var(--er);font-size:13px;min-height:18px;margin-bottom:12px;" id="pin-err"></div>
+    <div class="pin-pad" id="pin-pad">
+      <button class="pin-key" onclick="APP.pinKey('1')">1</button>
+      <button class="pin-key" onclick="APP.pinKey('2')">2</button>
+      <button class="pin-key" onclick="APP.pinKey('3')">3</button>
+      <button class="pin-key" onclick="APP.pinKey('4')">4</button>
+      <button class="pin-key" onclick="APP.pinKey('5')">5</button>
+      <button class="pin-key" onclick="APP.pinKey('6')">6</button>
+      <button class="pin-key" onclick="APP.pinKey('7')">7</button>
+      <button class="pin-key" onclick="APP.pinKey('8')">8</button>
+      <button class="pin-key" onclick="APP.pinKey('9')">9</button>
+      <button class="pin-key empty"></button>
+      <button class="pin-key" onclick="APP.pinKey('0')">0</button>
+      <button class="pin-key del" onclick="APP.pinDel()">⌫</button>
+    </div>
+    <div style="margin-top:20px;">
+      <button style="background:none;border:none;color:var(--t2);font-size:13px;cursor:pointer;font-weight:600;" onclick="APP.cancelTxPin()">Cancel</button>
+    </div>
+  </div>
+</div>
 
 <!-- GATE -->
 <div class="screen show" id="gate">
@@ -999,6 +998,12 @@ body::after{
         <button class="tx-filter" onclick="APP.filterTx('debit',this)">Money Out</button>
         <button class="tx-filter" onclick="APP.filterTx('pending',this)">Pending</button>
       </div>
+      <div style="padding:0 18px 12px;">
+        <button onclick="APP.downloadStatement()" style="width:100%;background:var(--card);border:1.5px solid var(--border);border-radius:12px;padding:12px 16px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:700;color:var(--p);cursor:pointer;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Download Account Statement (PDF)
+        </button>
+      </div>
       <div id="tx-full"></div>
     </div>
 
@@ -1073,9 +1078,17 @@ body::after{
   <div class="sub-topbar">
     <div class="back-btn" onclick="APP.back()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg></div>
   </div>
-  <div class="profile-hd">
-    <div><div class="profile-name" id="pf-name">—</div><div class="profile-email" id="pf-email">—</div></div>
-    <div class="profile-ava" id="pf-ava">??</div>
+  <div class="profile-hd" style="flex-direction:column;align-items:center;text-align:center;padding:0 18px 22px;gap:0;">
+    <div style="position:relative;margin-bottom:12px;" id="photo-upload-zone">
+      <div class="profile-ava" id="pf-ava" style="width:80px;height:80px;font-size:26px;margin:0 auto;">??</div>
+      <label for="photo-file-input" style="position:absolute;bottom:0;right:0;width:26px;height:26px;background:var(--p);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;border:2px solid var(--bg);box-shadow:var(--shadow-sm);">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      </label>
+      <input type="file" id="photo-file-input" accept="image/*" style="display:none;" onchange="APP.uploadProfilePhoto(this)">
+    </div>
+    <div class="profile-name" id="pf-name">—</div>
+    <div class="profile-email" id="pf-email">—</div>
+    <div style="font-size:11px;color:var(--t3);margin-top:4px;">Tap camera icon to change photo</div>
   </div>
   <div class="more-sec-lbl">PERSONAL DETAILS</div>
   <div class="more-card">

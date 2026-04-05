@@ -26,7 +26,8 @@ var DB = {
   kyc:        'atl_kyc',
   instSubs:   'atl_inst_submissions',
   fcmTokens:  'atl_fcm_tokens',
-  loans:      'atl_loans'
+  loans:      'atl_loans',
+  moneyReqs:  'atl_money_requests'
 };
 
 var PLATFORM_URLS = { userApp:'https://atlantas.pages.dev', adminApp:'', devApp:'' };

