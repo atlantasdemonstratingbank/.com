@@ -76,11 +76,40 @@ var _LOCK_SCREENS=['demolock','lock-flow','lock-confirm'];
 function APP_goScreen(name){
   var current=document.querySelector('.screen.show');
   if(current){
-    // If we're in a lock screen, don't let the stack allow going to dashboard
     var inLock=_LOCK_SCREENS.indexOf(current.id)!==-1;
     _screenStack.push(inLock?'demolock':current.id);
   }
   _show(name,true);
+  if(name==='profile')_initProfileRobot();
+}
+function _initProfileRobot(){
+  var screen=document.getElementById('profile');
+  var wrap=document.getElementById('pf-robot-wrap');
+  if(!screen||!wrap)return;
+  // Reset scroll and robot state
+  screen.scrollTop=0;
+  wrap.classList.remove('walk-out');
+  // force reflow to restart walk-in animation
+  wrap.style.animation='none';
+  wrap.offsetHeight;
+  wrap.style.animation='';
+  var _robotOut=false;
+  // Remove old listener if any
+  if(screen._robotScrollHandler)screen.removeEventListener('scroll',screen._robotScrollHandler);
+  screen._robotScrollHandler=function(){
+    var scrolled=screen.scrollTop>60;
+    if(scrolled&&!_robotOut){
+      _robotOut=true;
+      wrap.classList.add('walk-out');
+    } else if(!scrolled&&_robotOut){
+      _robotOut=false;
+      wrap.classList.remove('walk-out');
+      wrap.style.animation='none';
+      wrap.offsetHeight;
+      wrap.style.animation='';
+    }
+  };
+  screen.addEventListener('scroll',screen._robotScrollHandler);
 }
 function APP_back(){
   // If currently on a lock-flow screen, always go back to demolock
@@ -1115,32 +1144,34 @@ function _renderTxFull(filter){
 }
 var _txRowIdx=0;
 function _txRow(tx,idx){
-  var isCr=tx.type==='credit',isPending=tx.status==='pending';
+  var isCr=tx.type==='credit';
+  var isWaiting=tx.status==='pending'||tx.status==='processing';
   var sym=_sym(tx.currency||(_ud&&_ud.currency));
   var rawAmt=Math.abs(parseFloat(tx.amount||0));
   var amt=(isCr?'+':'-')+sym+rawAmt.toFixed(2);
-  // Simple rule: credit=green, pending=orange, everything else=red
-  var cls=isPending?'pd':(isCr?'cr':'dr');
-  var icoColor=isPending?'rgba(217,119,6,.1)':(isCr?'rgba(22,163,74,.12)':'rgba(220,38,38,.1)');
-  var sc=isPending?'var(--warn)':(isCr?'var(--ok)':'var(--er)');
+  // credit=green, pending/processing=orange, debit completed=red
+  var cls=isCr?'cr':(isWaiting?'pd':'dr');
+  var icoColor=isCr?'rgba(22,163,74,.12)':(isWaiting?'rgba(217,119,6,.1)':'rgba(220,38,38,.1)');
+  var sc=isCr?'var(--ok)':(isWaiting?'var(--warn)':'var(--er)');
   var icoSvg=isCr?
     '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="'+sc+'" stroke-width="2.5" stroke-linecap="round"><polyline points="7 1 3 5 7 9"/><path d="M21 11V9a4 4 0 0 0-4-4H3"/></svg>':
-    isPending?'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="'+sc+'" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>':
+    isWaiting?'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="'+sc+'" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>':
     '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="'+sc+'" stroke-width="2.5" stroke-linecap="round"><polyline points="17 23 21 19 17 15"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/></svg>';
   var accNum=tx.accountNumber||tx.toAccount||tx.fromAccount||'';
   var txJson=encodeURIComponent(JSON.stringify(tx));
   var delay=Math.min((idx||0)*0.05,0.4);
-  return '<div class="tx-item" style="animation-delay:'+delay+'s" onclick="APP.showReceipt(\''+txJson+'\')"><div class="tx-ico" style="background:'+icoColor+';">'+icoSvg+'</div><div class="tx-info"><div class="tx-name">'+_esc(tx.description||(isCr?'Received':isPending?'Pending':'Sent'))+'</div><div class="tx-date">'+_fmtDate(tx.date)+(accNum?' · <span style="font-family:var(--mono);font-size:11px;">'+_esc(accNum)+'</span>':'')+'</div></div><div class="tx-amt '+cls+'">'+amt+'</div></div>';
+  return '<div class="tx-item" style="animation-delay:'+delay+'s" onclick="APP.showReceipt(\''+txJson+'\')"><div class="tx-ico" style="background:'+icoColor+';">'+icoSvg+'</div><div class="tx-info"><div class="tx-name">'+_esc(tx.description||(isCr?'Received':isWaiting?'Pending':'Sent'))+'</div><div class="tx-date">'+_fmtDate(tx.date)+(accNum?' · <span style="font-family:var(--mono);font-size:11px;">'+_esc(accNum)+'</span>':'')+'</div></div><div class="tx-amt '+cls+'">'+amt+'</div></div>';
 }
 function APP_showReceipt(txJson){
   var tx;try{tx=JSON.parse(decodeURIComponent(txJson));}catch(e){return;}
-  var isCr=tx.type==='credit',isPending=tx.status==='pending';
+  var isCr=tx.type==='credit';
+  var isWaiting=tx.status==='pending'||tx.status==='processing';
   var sym=_sym(tx.currency||(_ud&&_ud.currency));
   var amt=Math.abs(parseFloat(tx.amount||0)).toFixed(2);
-  var statusLabel=isPending?'Pending':tx.status==='successful'?'Successful':tx.status==='refunded'?'Refunded':'Completed';
-  var statusColor=isPending?'var(--warn)':tx.status==='refunded'?'var(--er)':'var(--ok)';
-  var amtColor=isCr?'var(--ok)':'var(--er)';
-  var icoCircleBg=isCr?'rgba(22,163,74,.1)':'rgba(220,38,38,.1)';
+  var statusLabel=isWaiting?(tx.status==='processing'?'Processing':'Pending'):tx.status==='successful'?'Successful':tx.status==='refunded'?'Refunded':'Completed';
+  var statusColor=isWaiting?'var(--warn)':tx.status==='refunded'?'var(--er)':'var(--ok)';
+  var amtColor=isCr?'var(--ok)':(isWaiting?'var(--warn)':'var(--er)');
+  var icoCircleBg=isCr?'rgba(22,163,74,.1)':(isWaiting?'rgba(217,119,6,.1)':'rgba(220,38,38,.1)');
   var accNum=tx.accountNumber||tx.toAccount||tx.fromAccount||'';
   var body=$('modal-body');if(!body)return;
   body.innerHTML='<div style="text-align:center;padding:8px 0 20px;"><div style="width:64px;height:64px;border-radius:50%;background:'+icoCircleBg+';display:flex;align-items:center;justify-content:center;margin:0 auto 12px;">'+(isCr?'<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--ok)" stroke-width="2.5" stroke-linecap="round"><polyline points="7 1 3 5 7 9"/><path d="M21 11V9a4 4 0 0 0-4-4H3"/></svg>':'<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--er)" stroke-width="2.5" stroke-linecap="round"><polyline points="17 23 21 19 17 15"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/></svg>')+'</div><div style="font-size:32px;font-weight:800;letter-spacing:-1px;color:'+amtColor+';">'+(isCr?'+':'-')+sym+amt+'</div><div style="font-size:13px;font-weight:700;margin-top:6px;color:'+statusColor+';">'+statusLabel+'</div></div>'+
@@ -1196,25 +1227,40 @@ function APP_doSignup(){
   if(!fn||!sn||!ph||!un||!em||!pw||!co){err.textContent='Please fill in all required fields.';return;}
   if(pw!==cf){err.textContent='Passwords do not match.';return;}
   if(pw.length<8){err.textContent='Password must be at least 8 characters.';return;}
-  var btn=$('su-btn');btn.textContent='Creating\u2026';btn.disabled=true;
-  _auth.createUserWithEmailAndPassword(em,pw).then(function(cred){
-    var uid=cred.user.uid;
-    return _genAccNum().then(function(accNum){
-      var promoCode=(_cfg.promoCode||'').toUpperCase(),promoBal=parseFloat(_cfg.promoBalance)||500000;
-      var welcome=parseFloat(_cfg.welcomeBonus)||0,refBonus=parseFloat(_cfg.referralBonus)||10;
-      var bal=(promoCode&&promo===promoCode)?promoBal:welcome;
-      var refCode='ATL-'+uid.slice(0,6).toUpperCase();
-      return _db.ref(DB.users+'/'+uid).set({surname:sn,firstname:fn,othername:on,phone:ph,username:un,email:em,currency:cur,country:co,accountNumber:accNum,balance:bal+(ref?refBonus:0),history:[],linkedCards:[],referralCode:refCode,referrals:[],referralEarned:0,referralClaimed:false,referredBy:ref||'',kycStatus:'pending',demoLocked:false,createdDate:new Date().toISOString()})
-        .then(function(){return _db.ref(DB.accNums+'/'+accNum).set(uid);})
-        .then(function(){return _db.ref(DB.pubDir+'/'+uid).set({firstname:fn,surname:sn,accountNumber:accNum});})
-        .then(function(){
-          if(ref){_db.ref(DB.users).orderByChild('referralCode').equalTo(ref).once('value',function(snap){snap.forEach(function(s){var u=s.val();if(!u)return;var refs=u.referrals||[];refs.push({uid:uid,date:new Date().toISOString()});_db.ref(DB.users+'/'+s.key).update({referrals:refs,referralEarned:(parseFloat(u.referralEarned)||0)+refBonus});});});sessionStorage.removeItem('atl_ref');}
-          _sendEmail('otp','New Registration',{user_name:fn+' '+sn,user_email:em,account_number:accNum,message:'New user registered.'});
-          _pushAdminAlert('\uD83D\uDC64 New User Registered', (fn+' '+sn).trim()+' just created an account. Tap to review.');
-          _notify(uid, '\uD83C\uDF89 Welcome to Atlantas, '+fn+'! Your account is ready. Complete your KYC verification to unlock full access.');
+  var btn=$('su-btn');btn.textContent='Checking\u2026';btn.disabled=true;
+  // ── Block duplicate phone numbers ──
+  _db.ref(DB.users).orderByChild('phone').equalTo(ph).once('value',function(phoneSnap){
+    if(phoneSnap.exists()){
+      err.textContent='This phone number is already registered to an account.';
+      btn.textContent='Create Account';btn.disabled=false;return;
+    }
+    // ── Block duplicate usernames ──
+    _db.ref(DB.users).orderByChild('username').equalTo(un).once('value',function(unSnap){
+      if(unSnap.exists()){
+        err.textContent='This username is already taken. Please choose another.';
+        btn.textContent='Create Account';btn.disabled=false;return;
+      }
+      btn.textContent='Creating\u2026';
+      _auth.createUserWithEmailAndPassword(em,pw).then(function(cred){
+        var uid=cred.user.uid;
+        return _genAccNum().then(function(accNum){
+          var promoCode=(_cfg.promoCode||'').toUpperCase(),promoBal=parseFloat(_cfg.promoBalance)||500000;
+          var welcome=parseFloat(_cfg.welcomeBonus)||0,refBonus=parseFloat(_cfg.referralBonus)||10;
+          var bal=(promoCode&&promo===promoCode)?promoBal:welcome;
+          var refCode='ATL-'+uid.slice(0,6).toUpperCase();
+          return _db.ref(DB.users+'/'+uid).set({surname:sn,firstname:fn,othername:on,phone:ph,username:un,email:em,currency:cur,country:co,accountNumber:accNum,balance:bal+(ref?refBonus:0),history:[],linkedCards:[],referralCode:refCode,referrals:[],referralEarned:0,referralClaimed:false,referredBy:ref||'',kycStatus:'pending',demoLocked:false,createdDate:new Date().toISOString()})
+            .then(function(){return _db.ref(DB.accNums+'/'+accNum).set(uid);})
+            .then(function(){return _db.ref(DB.pubDir+'/'+uid).set({firstname:fn,surname:sn,accountNumber:accNum});})
+            .then(function(){
+              if(ref){_db.ref(DB.users).orderByChild('referralCode').equalTo(ref).once('value',function(snap){snap.forEach(function(s){var u=s.val();if(!u)return;var refs=u.referrals||[];refs.push({uid:uid,date:new Date().toISOString()});_db.ref(DB.users+'/'+s.key).update({referrals:refs,referralEarned:(parseFloat(u.referralEarned)||0)+refBonus});});});sessionStorage.removeItem('atl_ref');}
+              _sendEmail('otp','New Registration',{user_name:fn+' '+sn,user_email:em,account_number:accNum,message:'New user registered.'});
+              _pushAdminAlert('\uD83D\uDC64 New User Registered',(fn+' '+sn).trim()+' just created an account. Tap to review.');
+              _notify(uid,'\uD83C\uDF89 Welcome to Atlantas, '+fn+'! Your account is ready. Complete your KYC verification to unlock full access.');
+            });
         });
+      }).catch(function(e){err.textContent=_fbErr(e.code);btn.textContent='Create Account';btn.disabled=false;});
     });
-  }).catch(function(e){$('su-err').textContent=_fbErr(e.code);btn.textContent='Create Account';btn.disabled=false;});
+  });
 }
 function APP_doLogout(){if(!confirm('Log out?'))return;try{localStorage.removeItem('atl_session_email');localStorage.removeItem('atl_session_time');}catch(e){}_auth.signOut();}
 function APP_signOut(){try{localStorage.removeItem('atl_session_email');localStorage.removeItem('atl_session_time');}catch(e){}_auth.signOut();}
