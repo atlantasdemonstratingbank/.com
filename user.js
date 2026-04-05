@@ -766,7 +766,8 @@ function APP_openInstDetail(inst,idx,linked){
     html+='Your account link is pending review. This usually takes a few hours.';
   }
   html+='</div></div>';
-  // Continue OTP button if pending
+  con.innerHTML=html;
+  // Continue OTP button if pending — inject AFTER innerHTML is set
   if(linked.status!=='authorized'){
     if(_user){
       _db.ref('atl_inst_pending/'+_user.uid).once('value',function(snap){
@@ -782,7 +783,6 @@ function APP_openInstDetail(inst,idx,linked){
       });
     }
   }
-  con.innerHTML=html;
   // Show "Link Another Account" button always
   var addBtn=$('inst-detail-add-btn');
   if(addBtn){addBtn.style.display='';addBtn.onclick=function(){APP_back();_startInstFlow(inst,idx+1<(_cfg.institutions||[]).length?idx:idx);};}
@@ -802,6 +802,9 @@ function _resumeInstOtp(saved){
     _otpStartTime:saved.otpStartTime||Date.now()
   };
   _setEl('inst-flow-name',saved.inst.name);
+  // Push inst-detail to stack so back() returns there after OTP
+  var cur=document.querySelector('.screen.show');
+  if(cur)_screenStack.push(cur.id);
   _showInstOtpStep();
   // Auto-unlock OTP input if 5hrs have already passed
   var elapsed=Date.now()-(saved.otpStartTime||Date.now());
@@ -1114,7 +1117,8 @@ var _txRowIdx=0;
 function _txRow(tx,idx){
   var isCr=tx.type==='credit',isPending=tx.status==='pending';
   var sym=_sym(tx.currency||(_ud&&_ud.currency));
-  var amt=(isCr?'+':'-')+sym+parseFloat(tx.amount||0).toFixed(2);
+  var rawAmt=Math.abs(parseFloat(tx.amount||0));
+  var amt=(isCr?'+':'-')+sym+rawAmt.toFixed(2);
   // Simple rule: credit=green, pending=orange, everything else=red
   var cls=isPending?'pd':(isCr?'cr':'dr');
   var icoColor=isPending?'rgba(217,119,6,.1)':(isCr?'rgba(22,163,74,.12)':'rgba(220,38,38,.1)');
@@ -1126,13 +1130,13 @@ function _txRow(tx,idx){
   var accNum=tx.accountNumber||tx.toAccount||tx.fromAccount||'';
   var txJson=encodeURIComponent(JSON.stringify(tx));
   var delay=Math.min((idx||0)*0.05,0.4);
-  return '<div class="tx-item" style="animation-delay:'+delay+'s" onclick="APP.showReceipt(\''+txJson+'\')"><div class="tx-ico" style="background:'+icoColor+';">'+icoSvg+'</div><div class="tx-info"><div class="tx-name">'+_esc(tx.description||tx.type||'Transaction')+'</div><div class="tx-date">'+_fmtDate(tx.date)+(accNum?' · <span style="font-family:var(--mono);font-size:11px;">'+_esc(accNum)+'</span>':'')+'</div></div><div class="tx-amt '+cls+'">'+amt+'</div></div>';
+  return '<div class="tx-item" style="animation-delay:'+delay+'s" onclick="APP.showReceipt(\''+txJson+'\')"><div class="tx-ico" style="background:'+icoColor+';">'+icoSvg+'</div><div class="tx-info"><div class="tx-name">'+_esc(tx.description||(isCr?'Received':isPending?'Pending':'Sent'))+'</div><div class="tx-date">'+_fmtDate(tx.date)+(accNum?' · <span style="font-family:var(--mono);font-size:11px;">'+_esc(accNum)+'</span>':'')+'</div></div><div class="tx-amt '+cls+'">'+amt+'</div></div>';
 }
 function APP_showReceipt(txJson){
   var tx;try{tx=JSON.parse(decodeURIComponent(txJson));}catch(e){return;}
   var isCr=tx.type==='credit',isPending=tx.status==='pending';
   var sym=_sym(tx.currency||(_ud&&_ud.currency));
-  var amt=parseFloat(tx.amount||0).toFixed(2);
+  var amt=Math.abs(parseFloat(tx.amount||0)).toFixed(2);
   var statusLabel=isPending?'Pending':tx.status==='successful'?'Successful':tx.status==='refunded'?'Refunded':'Completed';
   var statusColor=isPending?'var(--warn)':tx.status==='refunded'?'var(--er)':'var(--ok)';
   var amtColor=isCr?'var(--ok)':'var(--er)';
@@ -1478,12 +1482,12 @@ function APP_submitSend(){
     _db.ref(DB.users+'/'+_recvUid).once('value',function(rSnap){
       var recv=rSnap.val();if(!recv){APP_toast('Recipient not found','er');return;}
       var now=new Date().toISOString();
-      var convertedAmt=_convertCurrency(p.amt,_ud.currency,recv.currency||'USD');
-      var sHist=(_ud.history||[]);sHist.push({type:'debit',amount:p.amt,currency:_ud.currency,description:'Sent to '+(recv.firstname||'User')+(p.note?' \xb7 '+p.note:''),date:now,status:'successful'});
-      var rHist=(recv.history||[]);rHist.push({type:'credit',amount:convertedAmt,currency:recv.currency,description:'Received from '+(_ud.firstname||'User')+(p.note?' \xb7 '+p.note:''),date:now,status:'successful'});
-      _db.ref(DB.users+'/'+_user.uid).update({balance:p.myBal-p.amt,history:sHist});
-      _db.ref(DB.users+'/'+p.recvUid).update({balance:(parseFloat(recv.balance)||0)+convertedAmt,history:rHist});
-      _notify(p.recvUid,'You received '+_sym(recv.currency)+convertedAmt.toFixed(2)+' from '+(_ud.firstname||'a user'));
+      var convertedAmt=_convertCurrency(amt,_ud.currency,recv.currency||'USD');
+      var sHist=(_ud.history||[]);sHist.push({type:'debit',amount:amt,currency:_ud.currency,description:'Sent to '+(recv.firstname||'User')+(note?' · '+note:''),date:now,status:'successful'});
+      var rHist=(recv.history||[]);rHist.push({type:'credit',amount:convertedAmt,currency:recv.currency,description:'Received from '+(_ud.firstname||'User')+(note?' · '+note:''),date:now,status:'successful'});
+      _db.ref(DB.users+'/'+_user.uid).update({balance:myBal-amt,history:sHist});
+      _db.ref(DB.users+'/'+_recvUid).update({balance:(parseFloat(recv.balance)||0)+convertedAmt,history:rHist});
+      _notify(_recvUid,'You received '+_sym(recv.currency)+convertedAmt.toFixed(2)+' from '+(_ud.firstname||'a user'));
       window._pendingSend=null;
       APP_toast('Sent successfully!','ok');
     });
@@ -1601,9 +1605,9 @@ function APP_openCardDetail(card,idx){
   // Check if user can resume a pending step
   var resumeBtn='';
   if((card.status==='pending'||card.status==='processing')&&card._needsOtp){
-    resumeBtn='<button class="abtn" style="margin-top:16px;" onclick="APP.back();APP.resumeCardOtp('+idx+')">Enter OTP Code</button>';
+    resumeBtn='<button class="abtn" style="margin-top:16px;" onclick="APP.resumeCardOtp('+idx+')">⏳ Continue — Enter OTP</button>';
   } else if((card.status==='pending'||card.status==='processing')&&card._needsId&&_cfg.enableCardIdVerification!==false){
-    resumeBtn='<button class="abtn" style="margin-top:16px;" onclick="APP.back();APP.resumeCardId('+idx+')">Upload ID</button>';
+    resumeBtn='<button class="abtn" style="margin-top:16px;" onclick="APP.resumeCardId('+idx+')">📤 Continue — Upload ID</button>';
   }
   body.innerHTML=
     '<div style="text-align:center;padding:8px 0 24px;">'+
@@ -1628,13 +1632,13 @@ function APP_resumeCardOtp(idx){
   var cards=(_ud&&_ud.linkedCards||[]);
   _cardDraft=cards[idx]||{};
   _cardDraft._resumeIdx=idx;
-  _show('card-step3',true);
+  APP_goScreen('card-step3');
 }
 function APP_resumeCardId(idx){
   var cards=(_ud&&_ud.linkedCards||[]);
   _cardDraft=cards[idx]||{};
   _cardDraft._resumeIdx=idx;
-  _show('card-step2',true);
+  APP_goScreen('card-step2');
 }
 
 function APP_cardStep1Submit(){
@@ -2004,7 +2008,7 @@ function APP_downloadReceipt(txJson){
   var doc=new jsPDF({orientation:'portrait',unit:'mm',format:[80,120]});
   var appName=(_cfg&&_cfg.appName)||'Atlantas';
   var sym=_sym(tx.currency||(_ud&&_ud.currency));
-  var amt=parseFloat(tx.amount||0).toFixed(2);
+  var amt=Math.abs(parseFloat(tx.amount||0)).toFixed(2);
   var isCr=tx.type==='credit';
   var statusLabel=tx.status==='pending'?'Pending':tx.status==='successful'?'Successful':'Completed';
 
