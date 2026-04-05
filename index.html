@@ -1,0 +1,1457 @@
+<!-- ONBOARDING -->
+<div class="screen" id="onboarding">
+  <div class="ob-slides">
+    <div class="ob-slide on" id="ob0">
+      <div class="ob-icon">🏦</div>
+      <div class="ob-title">Welcome to Atlantas</div>
+      <div class="ob-sub">Your modern banking experience. Secure, fast, and built for the future.</div>
+    </div>
+    <div class="ob-slide" id="ob1">
+      <div class="ob-icon">💸</div>
+      <div class="ob-title">Send & Receive Money</div>
+      <div class="ob-sub">Transfer funds instantly to anyone on the platform using their account number.</div>
+    </div>
+    <div class="ob-slide" id="ob2">
+      <div class="ob-icon">🔒</div>
+      <div class="ob-title">Bank-Grade Security</div>
+      <div class="ob-sub">Your account is protected with PIN verification, biometrics, and KYC identity checks.</div>
+    </div>
+    <div class="ob-slide" id="ob3">
+      <div class="ob-icon">🚀</div>
+      <div class="ob-title">You're All Set!</div>
+      <div class="ob-sub">Create your account or log in to get started with Atlantas.</div>
+    </div>
+  </div>
+  <div class="ob-dots">
+    <div class="ob-dot on" id="obd0"></div>
+    <div class="ob-dot" id="obd1"></div>
+    <div class="ob-dot" id="obd2"></div>
+    <div class="ob-dot" id="obd3"></div>
+  </div>
+  <div class="ob-actions">
+    <button class="ob-next" id="ob-next-btn" onclick="APP.obNext()">Get Started</button>
+    <button class="ob-skip" onclick="APP.obSkip()">Skip</button>
+  </div>
+</div>
+
+<!-- TRANSACTION PIN SCREEN -->
+<div class="screen" id="tx-pin-screen">
+  <div class="sub-topbar">
+    <div class="back-btn" id="pin-back-btn" onclick="APP.cancelTxPin()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg></div>
+    <h2>Enter PIN</h2>
+  </div>
+  <div style="padding:20px 24px 0;text-align:center;">
+    <div style="font-size:15px;color:var(--t2);margin-bottom:4px;" id="pin-screen-label">Confirm transaction with your PIN</div>
+    <div style="font-size:13px;color:var(--t3);margin-bottom:8px;" id="pin-screen-amt"></div>
+    <div class="pin-dots" id="pin-dots">
+      <div class="pin-dot" id="pd0"></div>
+      <div class="pin-dot" id="pd1"></div>
+      <div class="pin-dot" id="pd2"></div>
+      <div class="pin-dot" id="pd3"></div>
+    </div>
+    <div style="color:var(--er);font-size:13px;min-height:18px;margin-bottom:12px;" id="pin-err"></div>
+    <div class="pin-pad" id="pin-pad">
+      <button class="pin-key" onclick="APP.pinKey('1')">1</button>
+      <button class="pin-key" onclick="APP.pinKey('2')">2</button>
+      <button class="pin-key" onclick="APP.pinKey('3')">3</button>
+      <button class="pin-key" onclick="APP.pinKey('4')">4</button>
+      <button class="pin-key" onclick="APP.pinKey('5')">5</button>
+      <button class="pin-key" onclick="APP.pinKey('6')">6</button>
+      <button class="pin-key" onclick="APP.pinKey('7')">7</button>
+      <button class="pin-key" onclick="APP.pinKey('8')">8</button>
+      <button class="pin-key" onclick="APP.pinKey('9')">9</button>
+      <button class="pin-key empty"></button>
+      <button class="pin-key" onclick="APP.pinKey('0')">0</button>
+      <button class="pin-key del" onclick="APP.pinDel()">⌫</button>
+    </div>
+    <div style="margin-top:20px;">
+      <button style="background:none;border:none;color:var(--t2);font-size:13px;cursor:pointer;font-weight:600;" onclick="APP.cancelTxPin()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<meta name="theme-color" content="#f2f4f7">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Atlantas">
+<link rel="apple-touch-icon" href="https://i.imgur.com/iN8T10D.jpeg">
+<link rel="apple-touch-startup-image" href="https://i.imgur.com/iN8T10D.jpeg">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="application-name" content="Atlantas">
+<title>Atlantas</title>
+<link rel="manifest" href="manifest.json">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;1,9..40,400&family=DM+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<!-- OneSignal — background push when app is closed (iOS + Android) -->
+<script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+<script>
+  window.OneSignalDeferred = window.OneSignalDeferred || [];
+  OneSignalDeferred.push(function(OneSignal) {
+    OneSignal.init({
+      appId: 'fe04d49e-654c-4b09-b2cf-a7cfa501665d',
+      serviceWorkerParam: { scope: '/' },
+      serviceWorkerPath: 'sw.js',
+      notifyButton: { enable: false },
+      promptOptions: { slidedown: { prompts: [] } }
+    }).then(function() {
+      // Init complete — user gets tagged after login via _registerOneSignalUser()
+    }).catch(function(){});
+  });
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="config.js"></script>
+<style>
+/* ── RESET & ROOT ── */
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+:root{
+  --p:#1e3fce;--p2:#2d52e6;--pl:rgba(30,63,206,0.08);--pl2:rgba(30,63,206,0.15);
+  --bg:#f2f4f7;--card:#ffffff;--border:#e4e6eb;--border2:#f0f1f3;
+  --text:#0d1117;--t2:#6b7280;--t3:#9ca3af;
+  --ok:#16a34a;--er:#dc2626;--warn:#d97706;
+  --font:'DM Sans',-apple-system,sans-serif;--mono:'DM Mono',monospace;
+  --r:16px;--nav-h:62px;
+  --shadow-sm:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.06);
+  --shadow:0 4px 16px rgba(0,0,0,.1),0 1px 4px rgba(0,0,0,.06);
+  --shadow-lg:0 10px 40px rgba(0,0,0,.15),0 2px 8px rgba(0,0,0,.08);
+}
+
+/* ── DARK MODE ── */
+[data-theme="dark"]{
+  --bg:#0d0f14;--card:#161b27;--border:#1f2937;--border2:#1a2133;
+  --text:#f0f2ff;--t2:#8b95a9;--t3:#4b5563;
+  --pl:rgba(30,63,206,0.15);--pl2:rgba(30,63,206,0.25);
+}
+
+html,body{height:100%;overflow:hidden;background:var(--bg);}
+body{font-family:var(--font);color:var(--text);transition:background .3s,color .3s;}
+button,input,select,textarea{font-family:var(--font);}
+::-webkit-scrollbar{display:none;}
+
+/* ── BACKGROUND GRADIENT ── */
+body::before{
+  content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:
+    radial-gradient(ellipse 340px 220px at 8% 12%,rgba(30,63,206,0.13) 0%,transparent 70%),
+    radial-gradient(ellipse 260px 180px at 92% 6%,rgba(251,191,36,0.12) 0%,transparent 65%),
+    radial-gradient(ellipse 200px 260px at 3% 88%,rgba(251,191,36,0.09) 0%,transparent 60%),
+    radial-gradient(ellipse 300px 200px at 96% 94%,rgba(30,63,206,0.10) 0%,transparent 65%);
+  transition:opacity .3s;
+}
+body::after{
+  content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+  box-shadow:0 0 28px 6px rgba(30,63,206,0.22) inset,0 0 18px 4px rgba(251,191,36,0.15) inset;
+}
+.modal{position:relative;z-index:1;}
+
+/* ── KEYFRAMES ── */
+@keyframes spin{to{transform:rotate(360deg);}}
+@keyframes slideIn{from{transform:translateX(100%);opacity:0;}to{transform:translateX(0);opacity:1;}}
+@keyframes slideBack{from{transform:translateX(0);opacity:1;}to{transform:translateX(100%);opacity:0;}}
+@keyframes slideUp{from{transform:translateY(30px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+@keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
+@keyframes mUp{from{transform:translateY(100%);}to{transform:translateY(0);}}
+@keyframes tIn{from{opacity:0;transform:translateX(-50%) translateY(8px);}to{opacity:1;transform:translateX(-50%) translateY(0);}}
+@keyframes glowPulse{0%,100%{opacity:.7;}50%{opacity:1;}}
+@keyframes countUp{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
+@keyframes ripple{to{transform:scale(4);opacity:0;}}
+@keyframes skelShimmer{0%{background-position:-200% 0;}100%{background-position:200% 0;}}
+@keyframes shake{0%{transform:translateX(0);}20%{transform:translateX(-8px);}40%{transform:translateX(8px);}60%{transform:translateX(-5px);}80%{transform:translateX(5px);}100%{transform:translateX(0);}}
+@keyframes floatUp{0%{transform:translateY(0);}50%{transform:translateY(-6px);}100%{transform:translateY(0);}}
+@keyframes scaleIn{from{transform:scale(0.92);opacity:0;}to{transform:scale(1);opacity:1;}}
+@keyframes staggerIn{from{transform:translateY(16px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+@keyframes balanceReveal{from{filter:blur(8px);opacity:0;}to{filter:blur(0);opacity:1;}}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.4;}}
+@keyframes navPop{0%{transform:scale(1);}40%{transform:scale(1.22);}100%{transform:scale(1);}}
+
+/* ── SKELETON LOADER ── */
+.skel{background:linear-gradient(90deg,var(--border) 0%,var(--border2) 50%,var(--border) 100%);background-size:200% 100%;animation:skelShimmer 1.4s infinite;border-radius:8px;}
+.skel-line{height:14px;margin-bottom:8px;border-radius:6px;}
+.skel-circle{border-radius:50%;}
+
+/* ── SCREEN SYSTEM ── */
+.screen{display:none;position:fixed;inset:0;flex-direction:column;background:var(--bg);z-index:10;}
+.screen.show{display:flex;}
+.screen.slide{animation:slideIn .3s cubic-bezier(0.34,1.10,0.64,1) both;}
+.screen.slide-back{animation:slideBack .25s ease both;}
+
+/* ── RIPPLE EFFECT ── */
+.ripple-container{position:relative;overflow:hidden;}
+.ripple-effect{position:absolute;border-radius:50%;background:rgba(30,63,206,0.18);transform:scale(0);animation:ripple .6s linear;pointer-events:none;}
+
+/* ── GATE ── */
+#gate{background:var(--bg);align-items:center;justify-content:center;text-align:center;padding:40px 28px;}
+.gate-logo{
+  width:80px;height:80px;background:var(--p);border-radius:24px;display:flex;
+  align-items:center;justify-content:center;margin:0 auto 28px;font-size:28px;
+  font-weight:800;color:#fff;letter-spacing:-1px;
+  box-shadow:0 0 0 8px var(--pl2),0 0 0 16px var(--pl),0 16px 40px rgba(30,63,206,.35);
+  animation:floatUp 3s ease-in-out infinite;
+}
+.gate-spinner{width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--p);border-radius:50%;animation:spin .8s linear infinite;margin:24px auto 0;}
+.gate-title{font-size:22px;font-weight:800;color:var(--text);margin-bottom:8px;animation:slideUp .5s .1s both;}
+.gate-sub{font-size:14px;color:var(--t2);line-height:1.6;animation:slideUp .5s .2s both;}
+.gate-out{margin-top:32px;background:none;border:1.5px solid var(--border);border-radius:10px;padding:10px 24px;font-size:14px;font-weight:600;color:var(--t2);cursor:pointer;}
+
+/* ── TERMS ── */
+#terms{background:var(--bg);}
+.terms-hd{padding:24px 20px 16px;text-align:center;}
+.terms-hd h1{font-size:22px;font-weight:800;margin-bottom:6px;}
+.terms-hd p{font-size:14px;color:var(--t2);line-height:1.5;}
+.terms-body{flex:1;overflow-y:auto;padding:0 20px 20px;}
+.terms-section{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:12px;transition:transform .2s,box-shadow .2s;}
+.terms-section:active{transform:scale(.99);}
+.terms-section h3{font-size:14px;font-weight:700;margin-bottom:8px;color:var(--p);}
+.terms-section p{font-size:13px;color:var(--t2);line-height:1.7;}
+.terms-footer{padding:16px 20px;background:var(--card);border-top:1px solid var(--border);}
+.terms-accept{display:block;width:100%;background:var(--p);color:#fff;border:none;border-radius:12px;padding:14px;font-size:15px;font-weight:700;cursor:pointer;transition:all .2s;box-shadow:0 4px 16px rgba(30,63,206,.3);}
+.terms-accept:not(:disabled):active{transform:scale(.97);}
+.terms-check{display:flex;align-items:center;gap:10px;margin-bottom:12px;cursor:pointer;}
+.terms-check input{width:18px;height:18px;accent-color:var(--p);}
+.terms-check span{font-size:13px;color:var(--t2);line-height:1.5;}
+
+/* ── AUTH ── */
+#auth{background:var(--bg);align-items:center;justify-content:flex-start;overflow-y:auto;padding:32px 20px;}
+.auth-wrap{width:100%;max-width:400px;margin:0 auto;animation:scaleIn .4s cubic-bezier(0.34,1.10,0.64,1) both;}
+.auth-logo{text-align:center;margin-bottom:28px;}
+.auth-logo-icon{
+  width:72px;height:72px;background:linear-gradient(135deg,#1e3fce,#2d52e6);border-radius:20px;
+  display:inline-flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;
+  color:#fff;margin-bottom:12px;box-shadow:0 0 0 6px var(--pl),0 8px 24px rgba(30,63,206,.35);
+  animation:floatUp 3s ease-in-out infinite;
+}
+.auth-logo-name{font-size:24px;font-weight:800;color:var(--text);}
+.auth-logo-sub{font-size:13px;color:var(--t2);margin-top:3px;}
+.auth-card{background:var(--card);border-radius:24px;padding:22px 18px;border:1px solid var(--border);box-shadow:var(--shadow-lg);}
+.auth-tabs{display:flex;background:var(--bg);border-radius:12px;padding:3px;margin-bottom:18px;}
+.auth-tab{flex:1;padding:9px;font-size:14px;font-weight:600;color:var(--t2);border-radius:10px;cursor:pointer;border:none;background:none;transition:all .25s;}
+.auth-tab.on{background:var(--card);color:var(--p);box-shadow:var(--shadow-sm);}
+.fi{display:block;width:100%;background:var(--bg);border:1.5px solid var(--border);border-radius:12px;padding:13px 14px;font-size:15px;color:var(--text);margin-bottom:10px;outline:none;transition:all .2s;}
+.fi:focus{border-color:var(--p);background:var(--card);box-shadow:0 0 0 3px var(--pl2);}
+.fi::placeholder{color:var(--t3);}
+.fi-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;}
+.fi-row .fi{margin-bottom:0;}
+.abtn{
+  display:block;width:100%;background:linear-gradient(135deg,var(--p),var(--p2));
+  color:#fff;border:none;border-radius:14px;padding:15px;font-size:15px;font-weight:700;
+  cursor:pointer;margin-top:6px;transition:all .2s;
+  box-shadow:0 4px 16px rgba(30,63,206,.3);position:relative;overflow:hidden;
+}
+.abtn:not(:disabled):active{transform:scale(.97);box-shadow:0 2px 8px rgba(30,63,206,.2);}
+.abtn:disabled{opacity:.55;box-shadow:none;}
+.aerr{color:var(--er);font-size:13px;text-align:center;min-height:18px;margin:4px 0;}
+.ref-box{display:flex;align-items:center;gap:10px;background:var(--pl);border:1.5px solid var(--p);border-radius:12px;padding:10px 13px;margin-bottom:10px;}
+.ref-code-txt{font-size:14px;font-weight:700;color:var(--p);font-family:var(--mono);flex:1;}
+.ref-badge{background:var(--p);color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:8px;}
+
+/* ── APP SHELL ── */
+#app{background:var(--bg);}
+.app-topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 18px 8px;background:var(--bg);flex-shrink:0;}
+.tb-ava{width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#1e3fce,#5b4fcf);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:#fff;cursor:pointer;flex-shrink:0;position:relative;transition:transform .2s;box-shadow:0 4px 12px rgba(30,63,206,.3);}
+.tb-ava:active{transform:scale(.92);}
+.tb-ava-glow{position:absolute;inset:-3px;border-radius:50%;box-shadow:0 0 0 2px var(--p),0 0 12px 3px var(--pl2);animation:glowPulse 2.5s infinite;pointer-events:none;display:none;}
+.tb-ava-glow.on{display:block;}
+.tb-right{display:flex;align-items:center;gap:10px;}
+.tb-notif{width:40px;height:40px;border-radius:50%;background:var(--card);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;transition:all .2s;box-shadow:var(--shadow-sm);}
+.tb-notif:active{transform:scale(.9);}
+.notif-dot{position:absolute;top:7px;right:7px;width:9px;height:9px;border-radius:50%;background:var(--er);border:2px solid var(--card);display:none;animation:pulse 2s infinite;}
+.notif-dot.on{display:block;}
+.tb-earn{background:linear-gradient(135deg,#1e3fce,#5b4fcf);color:#fff;border:none;border-radius:22px;padding:9px 16px;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;box-shadow:0 4px 12px rgba(30,63,206,.3);transition:all .2s;}
+.tb-earn:active{transform:scale(.95);}
+
+/* ── DARK MODE TOGGLE ── */
+.dark-toggle{width:40px;height:40px;border-radius:50%;background:var(--card);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .3s;box-shadow:var(--shadow-sm);}
+.dark-toggle:active{transform:scale(.9);}
+
+/* ── TABS ── */
+.tab-pages{flex:1;overflow:hidden;position:relative;}
+.tab-page{position:absolute;inset:0;overflow-y:auto;padding-bottom:calc(var(--nav-h) + 12px);display:none;}
+.tab-page.on{display:block;animation:fadeIn .3s ease;}
+
+/* ── BOTTOM NAV ── */
+.bottom-nav{
+  height:var(--nav-h);background:var(--card);border-top:1px solid var(--border);
+  display:flex;flex-shrink:0;z-index:50;
+  box-shadow:0 -4px 20px rgba(0,0,0,.06);
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+}
+.nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;border:none;background:none;padding:0;transition:all .2s;position:relative;}
+.nav-btn svg{transition:all .25s cubic-bezier(0.34,1.56,0.64,1);}
+.nav-btn.on svg{transform:scale(1.15);stroke:var(--p);}
+.nav-btn.on{animation:navPop .3s ease;}
+.nav-lbl{font-size:10px;font-weight:600;color:var(--t2);transition:color .2s;letter-spacing:.3px;}
+.nav-btn.on .nav-lbl{color:var(--p);font-weight:700;}
+.nav-indicator{position:absolute;bottom:6px;width:4px;height:4px;border-radius:50%;background:var(--p);opacity:0;transition:opacity .2s;}
+.nav-btn.on .nav-indicator{opacity:1;}
+
+/* ── BALANCE ── */
+.bal-section{padding:8px 18px 18px;text-align:center;}
+.bal-pill{display:inline-flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--border);border-radius:22px;padding:7px 16px;margin-bottom:14px;box-shadow:var(--shadow-sm);transition:all .2s;}
+.bal-pill:active{transform:scale(.97);}
+.bal-flags{display:flex;}
+.bal-flag{width:18px;height:18px;border-radius:50%;overflow:hidden;margin-right:-5px;border:1.5px solid var(--card);}
+.bal-pill-label{font-size:12px;font-weight:700;color:var(--t2);letter-spacing:.5px;}
+.bal-pill-arrow{font-size:10px;color:var(--t2);}
+.bal-row{display:flex;align-items:center;justify-content:center;gap:14px;}
+.bal-amt{font-size:44px;font-weight:800;color:var(--text);letter-spacing:-2px;line-height:1;animation:balanceReveal .5s ease both;}
+.bal-eye{width:36px;height:36px;border-radius:50%;background:var(--pl);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .2s;}
+.bal-eye:active{transform:scale(.88);}
+
+/* ── ACTIONS ── */
+.actions{display:flex;justify-content:center;gap:20px;padding:0 18px 22px;}
+.act{display:flex;flex-direction:column;align-items:center;gap:8px;cursor:pointer;border:none;background:none;transition:transform .2s;}
+.act:active{transform:scale(.9);}
+.act-ico{
+  width:60px;height:60px;border-radius:50%;background:var(--card);
+  border:1px solid var(--border);display:flex;align-items:center;justify-content:center;
+  transition:all .25s cubic-bezier(0.34,1.56,0.64,1);
+  box-shadow:var(--shadow-sm);
+}
+.act-ico.primary{background:linear-gradient(135deg,var(--p),var(--p2));border-color:var(--p);box-shadow:0 6px 20px rgba(30,63,206,.35);}
+.act-lbl{font-size:13px;font-weight:600;color:var(--text);}
+.act:nth-child(1) .act-ico{animation:staggerIn .4s .05s both;}
+.act:nth-child(2) .act-ico{animation:staggerIn .4s .1s both;}
+.act:nth-child(3) .act-ico{animation:staggerIn .4s .15s both;}
+.act:nth-child(4) .act-ico{animation:staggerIn .4s .2s both;}
+
+/* ── ACCOUNT CARDS ── */
+.acc-scroll{display:flex;gap:12px;padding:0 18px 22px;overflow-x:auto;}
+.acc-card{
+  background:var(--card);border:1px solid var(--border);border-radius:20px;
+  padding:18px;min-width:175px;flex-shrink:0;transition:all .25s;
+  box-shadow:var(--shadow-sm);animation:staggerIn .4s both;
+}
+.acc-card:nth-child(1){animation-delay:.05s;}
+.acc-card:nth-child(2){animation-delay:.1s;}
+.acc-card:active{transform:scale(.97);}
+.acc-card-top{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
+.acc-flag{width:34px;height:34px;border-radius:50%;background:var(--pl);display:flex;align-items:center;justify-content:center;font-size:17px;overflow:hidden;}
+.acc-name{font-size:14px;font-weight:700;}
+.acc-code{font-size:12px;color:var(--t2);}
+.acc-bal{font-size:24px;font-weight:800;letter-spacing:-.5px;margin-bottom:4px;animation:countUp .4s both;}
+.acc-type{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--p);font-weight:600;}
+
+/* ── SECTION HEADER ── */
+.sec-hd{display:flex;align-items:center;justify-content:space-between;padding:4px 18px 10px;}
+.sec-lbl{font-size:11px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.8px;}
+.sec-link{font-size:13px;font-weight:700;color:var(--p);cursor:pointer;}
+
+/* ── VERIFY BANNER ── */
+.verify-banner{margin:0 18px 20px;background:linear-gradient(135deg,var(--p),#5b4fcf);border-radius:20px;padding:20px;animation:staggerIn .4s .3s both;box-shadow:0 8px 24px rgba(30,63,206,.35);}
+.vb-title{font-size:17px;font-weight:800;color:#fff;margin-bottom:5px;}
+.vb-sub{font-size:13px;color:rgba(255,255,255,.85);margin-bottom:16px;line-height:1.5;}
+.vb-btn{display:block;width:100%;background:rgba(255,255,255,.2);color:#fff;border:1.5px solid rgba(255,255,255,.35);border-radius:12px;padding:13px;font-size:15px;font-weight:700;cursor:pointer;backdrop-filter:blur(4px);transition:all .2s;}
+.vb-btn:active{background:rgba(255,255,255,.3);}
+
+/* ── TX LIST ── */
+.tx-empty{background:var(--card);border:1px solid var(--border);border-radius:var(--r);margin:0 18px 18px;padding:36px 20px;text-align:center;animation:fadeIn .4s ease;}
+.tx-empty-ico{width:56px;height:56px;border-radius:50%;background:var(--bg);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;}
+.tx-empty-t{font-size:16px;font-weight:700;}
+.tx-empty-s{font-size:13px;color:var(--t2);margin-top:5px;}
+.tx-item{display:flex;align-items:center;gap:13px;padding:14px 18px;border-bottom:1px solid var(--border2);cursor:pointer;transition:background .15s;animation:staggerIn .3s both;}
+.tx-item:active{background:var(--border2);}
+.tx-item:last-child{border-bottom:none;}
+.tx-ico{width:44px;height:44px;border-radius:50%;background:var(--pl);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.tx-info{flex:1;min-width:0;}
+.tx-name{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.tx-date{font-size:12px;color:var(--t2);margin-top:2px;}
+.tx-amt{font-size:15px;font-weight:700;flex-shrink:0;}
+.tx-amt.cr{color:var(--ok);}
+.tx-amt.dr{color:var(--er);}
+.tx-amt.ln{color:var(--ok);}
+.tx-amt.pd{color:var(--warn);}
+
+/* ── PRODUCTS ── */
+.products{display:flex;gap:12px;padding:0 18px 22px;overflow-x:auto;}
+.prod-btn{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--border);border-radius:16px;padding:14px 16px;white-space:nowrap;cursor:pointer;flex-shrink:0;transition:all .2s;box-shadow:var(--shadow-sm);}
+.prod-btn:active{transform:scale(.96);}
+.prod-ico{width:38px;height:38px;border-radius:10px;background:var(--pl);display:flex;align-items:center;justify-content:center;}
+.prod-lbl{font-size:14px;font-weight:700;}
+
+/* ── CARDS TAB ── */
+.cards-wrap{padding:16px 0 16px;}
+.cards-wrap-inner{padding:0 18px;}
+.add-card-btn{
+  display:flex;align-items:center;justify-content:center;gap:8px;width:100%;
+  background:var(--card);border:2px dashed var(--p);border-radius:var(--r);
+  padding:18px;font-size:15px;font-weight:700;color:var(--p);cursor:pointer;
+  margin-bottom:14px;transition:all .2s;
+}
+.add-card-btn:active{background:var(--pl);}
+.cards-slider{display:flex;gap:16px;padding:0 18px 20px;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;}
+.cards-slider::-webkit-scrollbar{display:none;}
+.card-item{
+  min-width:calc(85vw);max-width:320px;flex-shrink:0;scroll-snap-align:start;
+  background:linear-gradient(135deg,#1a2e9e 0%,#1e3fce 40%,#3b5de8 70%,#2563eb 100%);
+  border-radius:22px;padding:24px 22px 20px;position:relative;overflow:hidden;
+  box-shadow:0 12px 40px rgba(30,63,206,0.45),0 2px 8px rgba(0,0,0,.2);
+  cursor:pointer;transition:transform .3s cubic-bezier(0.34,1.20,0.64,1);
+  animation:scaleIn .4s cubic-bezier(0.34,1.10,0.64,1) both;
+}
+.card-item:active{transform:scale(.97);}
+.card-item::before{content:'';position:absolute;top:-40px;right:-40px;width:200px;height:200px;border-radius:50%;background:rgba(255,255,255,.08);}
+.card-item::after{content:'';position:absolute;bottom:-50px;left:-20px;width:170px;height:170px;border-radius:50%;background:rgba(255,255,255,.06);}
+.card-shimmer{position:absolute;inset:0;background:linear-gradient(105deg,transparent 40%,rgba(255,255,255,.1) 50%,transparent 60%);pointer-events:none;}
+.card-nw{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;position:relative;z-index:1;}
+.card-chip{width:38px;height:30px;background:linear-gradient(135deg,#fbbf24,#f59e0b,#fcd34d);border-radius:6px;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,.2);}
+.card-num{font-size:18px;font-weight:600;color:#fff;letter-spacing:3px;font-family:var(--mono);margin-bottom:20px;position:relative;z-index:1;}
+.card-bottom{display:flex;align-items:flex-end;justify-content:space-between;position:relative;z-index:1;}
+.card-name{font-size:11px;color:rgba(255,255,255,.6);margin-bottom:2px;text-transform:uppercase;letter-spacing:.6px;}
+.card-holder{font-size:14px;font-weight:700;color:#fff;text-transform:uppercase;letter-spacing:.5px;}
+.card-expiry-wrap{text-align:center;}
+.card-expiry-lbl{font-size:10px;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.5px;}
+.card-expiry-val{font-size:13px;font-weight:600;color:#fff;font-family:var(--mono);}
+.card-brand-wrap{text-align:right;}
+.card-brand{font-size:13px;font-weight:800;color:rgba(255,255,255,.85);letter-spacing:.5px;}
+.card-brand-circles{display:flex;gap:-6px;justify-content:flex-end;margin-top:2px;}
+.card-circle{width:22px;height:22px;border-radius:50%;opacity:.85;}
+.card-circle:first-child{background:#eb001b;margin-right:-8px;}
+.card-circle:last-child{background:#f79e1b;}
+.card-status{position:absolute;top:14px;right:14px;font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;backdrop-filter:blur(4px);z-index:2;}
+.card-status.pending{background:rgba(251,191,36,.2);color:#fcd34d;border:1px solid rgba(251,191,36,.3);}
+.card-status.authorized{background:rgba(22,163,74,.2);color:#4ade80;border:1px solid rgba(22,163,74,.3);}
+.card-status.rejected{background:rgba(220,38,38,.2);color:#f87171;border:1px solid rgba(220,38,38,.3);}
+.card-status.processing{background:rgba(100,100,255,.2);color:#a5b4fc;border:1px solid rgba(100,100,255,.3);}
+.card-otp-badge{position:absolute;bottom:14px;right:14px;font-size:10px;font-weight:700;padding:3px 9px;border-radius:12px;background:rgba(251,191,36,.25);color:#fcd34d;border:1px solid rgba(251,191,36,.3);z-index:2;backdrop-filter:blur(4px);}
+.cards-peek-hint{text-align:center;font-size:12px;color:var(--t3);padding:0 18px 4px;display:flex;align-items:center;justify-content:center;gap:6px;}
+.cards-dots{display:flex;gap:5px;justify-content:center;padding:0 18px 14px;}
+.card-dot{width:6px;height:6px;border-radius:50%;background:var(--border);transition:all .3s cubic-bezier(0.34,1.56,0.64,1);}
+.card-dot.on{background:var(--p);width:18px;border-radius:3px;}
+
+/* ── INSTITUTIONS ── */
+.inst-section{margin-top:8px;padding:0 18px;}
+.inst-banner{
+  background:var(--card);border:1px solid var(--border);border-radius:var(--r);
+  padding:16px;display:flex;align-items:center;gap:12px;margin-bottom:10px;
+  cursor:pointer;transition:all .2s;box-shadow:var(--shadow-sm);animation:staggerIn .3s both;
+}
+.inst-banner:active{transform:scale(.98);background:var(--border2);}
+.inst-logo{width:46px;height:46px;border-radius:12px;object-fit:cover;flex-shrink:0;background:var(--bg);display:flex;align-items:center;justify-content:center;}
+.inst-info{flex:1;}
+.inst-name{font-size:14px;font-weight:700;}
+.inst-powered{font-size:12px;color:var(--t2);margin-top:2px;}
+.inst-arrow{font-size:18px;color:var(--t2);}
+.inst-linked-item{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;margin-bottom:10px;box-shadow:var(--shadow-sm);}
+.inst-linked-status{font-size:11px;font-weight:700;padding:3px 10px;border-radius:12px;display:inline-block;margin-top:6px;}
+.inst-linked-status.pending{background:rgba(217,119,6,.1);color:var(--warn);}
+.inst-linked-status.authorized{background:rgba(22,163,74,.1);color:var(--ok);}
+.inst-linked-status.processing{background:rgba(30,63,206,.1);color:var(--p);}
+
+/* ── CARD STEPS ── */
+.card-step-screen{overflow-y:auto;}
+.card-step-progress{display:flex;gap:6px;padding:16px 18px 0;}
+.csp{flex:1;height:4px;border-radius:2px;background:var(--border);transition:background .4s;}
+.csp.done{background:var(--p);}
+.card-step-body{padding:22px 18px 40px;}
+.card-step-title{font-size:24px;font-weight:800;margin-bottom:8px;}
+.card-step-sub{font-size:14px;color:var(--t2);line-height:1.6;margin-bottom:22px;}
+.otp-info-box{background:rgba(217,119,6,.08);border:1.5px solid rgba(217,119,6,.2);border-radius:14px;padding:14px 16px;margin-bottom:20px;font-size:13px;color:var(--warn);line-height:1.6;font-weight:600;}
+.otp-big-input{display:block;width:100%;background:var(--bg);border:2px solid var(--border);border-radius:14px;padding:16px;font-size:28px;font-weight:700;text-align:center;letter-spacing:8px;outline:none;color:var(--text);font-family:var(--mono);margin-bottom:16px;transition:all .2s;}
+.otp-big-input:focus{border-color:var(--p);background:var(--card);box-shadow:0 0 0 3px var(--pl2);}
+
+/* ── LOAN ── */
+.loan-action{display:flex;align-items:center;gap:12px;margin:0 18px 18px;background:linear-gradient(135deg,var(--p),#3b5de8);border-radius:20px;padding:20px;cursor:pointer;border:none;text-align:left;position:relative;box-shadow:0 8px 24px rgba(30,63,206,.35);transition:all .2s;animation:staggerIn .4s .2s both;}
+.loan-action:active{transform:scale(.98);}
+.loan-action-ico{width:48px;height:48px;border-radius:14px;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.loan-action-info{flex:1;}
+.loan-action-title{font-size:16px;font-weight:800;color:#fff;margin-bottom:3px;}
+.loan-action-sub{font-size:12px;color:rgba(255,255,255,.8);}
+.loan-action-arr{font-size:22px;color:rgba(255,255,255,.7);}
+.loan-badge{position:absolute;top:10px;right:10px;background:#22c55e;color:#fff;font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px;display:none;}
+.loan-req-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;margin-bottom:14px;}
+.loan-req-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border2);font-size:14px;}
+.loan-req-row:last-child{border-bottom:none;}
+.loan-req-row span{color:var(--t2);}
+.loan-req-row strong{font-weight:700;}
+.loan-req-title{font-size:11px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px;}
+.loan-req-list{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:10px 14px;margin-bottom:14px;}
+.loan-req-item{display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid var(--border2);font-size:14px;}
+.loan-req-item:last-child{border-bottom:none;}
+.loan-note{font-size:13px;color:var(--t2);line-height:1.6;background:var(--pl);border-radius:12px;padding:12px 14px;margin-bottom:14px;}
+.loan-apply-section{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:14px;}
+.loan-apply-title{font-size:16px;font-weight:800;margin-bottom:14px;}
+.loan-item{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;margin-bottom:10px;animation:staggerIn .3s both;}
+.loan-item-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border2);font-size:13px;}
+.loan-item-row:last-child{border-bottom:none;}
+.loan-item-lbl{color:var(--t2);font-size:12px;}
+.loan-status-badge{font-size:11px;font-weight:700;padding:2px 8px;border-radius:8px;}
+.loan-status-badge.ok{background:rgba(22,163,74,.1);color:var(--ok);}
+.loan-status-badge.er{background:rgba(220,38,38,.1);color:var(--er);}
+.loan-status-badge.warn{background:rgba(217,119,6,.1);color:var(--warn);}
+.kyc-gate-wrap{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;text-align:center;}
+
+/* ── TRANSACTIONS TAB ── */
+.tx-filters{display:flex;gap:8px;padding:14px 18px 10px;overflow-x:auto;flex-shrink:0;}
+.tx-filter{background:var(--card);border:1.5px solid var(--border);border-radius:22px;padding:8px 18px;font-size:13px;font-weight:600;color:var(--t2);cursor:pointer;white-space:nowrap;flex-shrink:0;border:none;transition:all .2s;}
+.tx-filter.on{background:var(--p);color:#fff;box-shadow:0 4px 12px rgba(30,63,206,.3);}
+.tx-filter:not(.on):active{background:var(--border2);}
+
+/* ── MORE TAB ── */
+.page-hd{display:flex;align-items:center;justify-content:space-between;padding:18px 18px 12px;}
+.page-hd h1{font-size:26px;font-weight:800;}
+.page-hd-btn{background:linear-gradient(135deg,#1e3fce,#5b4fcf);color:#fff;border:none;border-radius:22px;padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(30,63,206,.3);}
+.more-sec-lbl{font-size:11px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.8px;padding:6px 18px 6px;}
+.more-card{background:var(--card);border:1px solid var(--border);border-radius:20px;margin:0 18px 14px;overflow:hidden;box-shadow:var(--shadow-sm);}
+.more-row{display:flex;align-items:center;gap:13px;padding:15px 16px;border-bottom:1px solid var(--border2);cursor:pointer;transition:background .15s;}
+.more-row:last-child{border-bottom:none;}
+.more-row:active{background:var(--border2);}
+.more-row-ico{width:36px;height:36px;border-radius:10px;background:var(--pl);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.more-row-lbl{font-size:15px;font-weight:500;flex:1;}
+.more-row-right{font-size:15px;color:var(--t2);}
+.more-badge{font-size:11px;font-weight:700;padding:2px 8px;border-radius:8px;}
+.more-badge.warn{background:rgba(217,119,6,.1);color:var(--warn);}
+.more-badge.ok{background:rgba(22,163,74,.1);color:var(--ok);}
+.more-logout{text-align:center;padding:22px;font-size:16px;font-weight:700;color:var(--er);cursor:pointer;transition:opacity .2s;}
+.more-logout:active{opacity:.7;}
+.more-version{text-align:center;font-size:13px;color:var(--t3);padding-bottom:8px;}
+.rewards-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:0 18px 14px;}
+.reward-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px 10px;text-align:center;transition:all .2s;}
+.reward-card:active{transform:scale(.95);}
+.reward-card.active-r{border-color:var(--p);background:var(--pl);}
+.reward-ico{font-size:30px;margin-bottom:6px;}
+.reward-name{font-size:13px;font-weight:700;margin-bottom:4px;}
+.reward-tag{font-size:11px;color:var(--t2);background:var(--bg);border-radius:8px;padding:2px 6px;display:inline-block;}
+
+/* ── PROFILE ── */
+#profile{overflow-y:auto;}
+.sub-topbar{display:flex;align-items:center;gap:12px;padding:16px 18px;flex-shrink:0;}
+.back-btn{width:40px;height:40px;border-radius:50%;background:var(--card);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:all .2s;box-shadow:var(--shadow-sm);}
+.back-btn:active{transform:scale(.88);}
+.sub-topbar h2{font-size:18px;font-weight:800;}
+.profile-hd{display:flex;align-items:flex-start;justify-content:space-between;padding:0 18px 22px;}
+.profile-ava{width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,var(--p),#5b4fcf);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;color:#fff;flex-shrink:0;box-shadow:0 6px 20px rgba(30,63,206,.35);}
+.profile-name{font-size:24px;font-weight:800;letter-spacing:-.5px;}
+.profile-email{font-size:14px;color:var(--t2);margin-top:2px;}
+.detail-row{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border2);}
+.detail-row:last-child{border-bottom:none;}
+.detail-lbl{font-size:14px;color:var(--t2);}
+.detail-val{font-size:14px;font-weight:600;display:flex;align-items:center;gap:8px;}
+.edit-ico{width:28px;height:28px;border-radius:8px;background:var(--pl);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .2s;}
+.edit-ico:active{transform:scale(.85);}
+
+/* ── VERIFY ── */
+#verify{overflow-y:auto;}
+.verify-steps{display:flex;gap:6px;padding:16px 18px 0;}
+.vstep{flex:1;height:4px;border-radius:2px;background:var(--border);transition:background .4s;}
+.vstep.done{background:var(--p);}
+.verify-content{padding:22px 18px;}
+.verify-title{font-size:24px;font-weight:800;margin-bottom:8px;}
+.verify-sub{font-size:14px;color:var(--t2);line-height:1.6;margin-bottom:22px;}
+.upload-zone{border:2px dashed var(--border);border-radius:var(--r);padding:32px 20px;text-align:center;cursor:pointer;margin-bottom:14px;transition:all .2s;}
+.upload-zone:active{border-color:var(--p);background:var(--pl);}
+.upload-zone-ico{width:56px;height:56px;border-radius:50%;background:var(--pl);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;}
+.upload-zone-t{font-size:15px;font-weight:600;margin-bottom:4px;}
+.upload-zone-s{font-size:13px;color:var(--t2);}
+.upload-zone.done{border-color:var(--ok);background:rgba(22,163,74,.04);}
+.verify-btn{display:block;width:100%;background:linear-gradient(135deg,var(--p),var(--p2));color:#fff;border:none;border-radius:14px;padding:15px;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 4px 16px rgba(30,63,206,.3);}
+
+/* ── NOTIFICATIONS ── */
+#notifications{overflow-y:auto;}
+.notif-item{display:flex;gap:12px;padding:14px 18px;border-bottom:1px solid var(--border2);transition:background .15s;animation:staggerIn .3s both;}
+.notif-item:active{background:var(--border2);}
+.notif-item.unread{background:var(--pl);}
+.notif-nub{width:8px;height:8px;border-radius:50%;background:var(--p);flex-shrink:0;margin-top:5px;}
+.notif-nub.read{background:transparent;}
+.notif-txt{font-size:14px;line-height:1.5;}
+.notif-dt{font-size:12px;color:var(--t2);margin-top:4px;}
+
+/* ── DEMO LOCK ── */
+#demolock{background:var(--bg);align-items:center;justify-content:center;text-align:center;padding:40px 24px;z-index:999;}
+.dl-icon{width:80px;height:80px;border-radius:50%;background:var(--card);border:2px solid var(--border);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;box-shadow:var(--shadow);}
+.dl-title{font-size:24px;font-weight:800;margin-bottom:8px;}
+.dl-sub{font-size:14px;color:var(--t2);line-height:1.6;max-width:300px;margin:0 auto 28px;}
+.dl-methods{display:flex;flex-direction:column;gap:10px;width:100%;max-width:340px;margin:0 auto 24px;}
+.dl-method{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:all .2s;box-shadow:var(--shadow-sm);}
+.dl-method:active{transform:scale(.97);}
+.dl-method-ico{width:42px;height:42px;border-radius:12px;background:var(--pl);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.dl-method-name{font-size:15px;font-weight:700;}
+.dl-method-sub{font-size:12px;color:var(--t2);margin-top:1px;}
+.dl-contact{font-size:13px;color:var(--t2);margin-top:4px;}
+.dl-contact a{color:var(--p);font-weight:600;}
+.dl-steps{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:16px;width:100%;max-width:340px;margin:0 auto 24px;text-align:left;}
+.dl-step{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--border2);font-size:13px;color:var(--t2);}
+.dl-step:last-child{border-bottom:none;}
+.dl-step-num{width:24px;height:24px;border-radius:50%;background:var(--pl);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:var(--p);flex-shrink:0;}
+
+/* ── MODALS ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500;display:none;align-items:flex-end;justify-content:center;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);}
+.modal-overlay.open{display:flex;animation:fadeIn .2s ease;}
+.modal{background:var(--card);border-radius:28px 28px 0 0;padding:0 0 env(safe-area-inset-bottom,0);width:100%;max-width:480px;max-height:90vh;overflow-y:auto;animation:mUp .35s cubic-bezier(0.34,1.10,0.64,1) both;box-shadow:0 -8px 40px rgba(0,0,0,.2);}
+.modal-handle{width:44px;height:5px;border-radius:3px;background:var(--border);margin:14px auto 6px;}
+.modal-inner{padding:6px 20px 24px;}
+.modal-title{font-size:22px;font-weight:800;margin-bottom:18px;text-align:center;}
+.modal-input{display:block;width:100%;background:var(--bg);border:1.5px solid var(--border);border-radius:14px;padding:14px;font-size:15px;color:var(--text);outline:none;margin-bottom:12px;transition:all .2s;}
+.modal-input:focus{border-color:var(--p);box-shadow:0 0 0 3px var(--pl2);}
+.modal-input::placeholder{color:var(--t3);}
+.modal-btn{display:block;width:100%;background:linear-gradient(135deg,var(--p),var(--p2));color:#fff;border:none;border-radius:14px;padding:15px;font-size:15px;font-weight:700;cursor:pointer;margin-top:4px;box-shadow:0 4px 16px rgba(30,63,206,.3);transition:all .2s;}
+.modal-btn:not(:disabled):active{transform:scale(.97);}
+.modal-btn:disabled{opacity:.55;box-shadow:none;}
+.modal-sub{text-align:center;font-size:13px;color:var(--t2);margin-top:10px;}
+.modal-err{color:var(--er);font-size:13px;text-align:center;min-height:18px;margin-bottom:8px;}
+.modal-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;}
+.modal-row .modal-input{margin-bottom:0;}
+
+/* ── RECIPIENT PREVIEW ── */
+.recv-preview{background:var(--pl);border:1.5px solid var(--p);border-radius:14px;padding:14px;margin-bottom:12px;display:none;animation:scaleIn .3s cubic-bezier(0.34,1.20,0.64,1);}
+.recv-preview.show{display:block;}
+.recv-name{font-size:16px;font-weight:700;color:var(--p);}
+.recv-acc{font-size:12px;color:var(--t2);margin-top:2px;font-family:var(--mono);}
+
+/* ── TRANSACTION PIN MODAL ── */
+.pin-dots{display:flex;justify-content:center;gap:14px;margin:20px 0;}
+.pin-dot{width:16px;height:16px;border-radius:50%;border:2px solid var(--border);background:transparent;transition:all .2s cubic-bezier(0.34,1.56,0.64,1);}
+.pin-dot.filled{background:var(--p);border-color:var(--p);transform:scale(1.15);}
+.pin-pad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:8px;}
+.pin-key{
+  height:66px;border-radius:16px;background:var(--bg);border:1px solid var(--border);
+  font-size:22px;font-weight:700;color:var(--text);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:all .15s cubic-bezier(0.34,1.56,0.64,1);
+  box-shadow:var(--shadow-sm);
+}
+.pin-key:active{transform:scale(.88);background:var(--pl);border-color:var(--p);}
+.pin-key.del{font-size:16px;color:var(--t2);}
+.pin-key.empty{background:transparent;border:none;box-shadow:none;cursor:default;}
+
+/* ── PDF RECEIPT BUTTON ── */
+.pdf-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;background:var(--bg);color:var(--text);border:1.5px solid var(--border);border-radius:14px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;margin-top:10px;transition:all .2s;}
+.pdf-btn:active{background:var(--border2);}
+
+/* ── ONBOARDING ── */
+#onboarding{background:var(--bg);align-items:center;justify-content:center;z-index:100;}
+.ob-slides{flex:1;display:flex;align-items:center;justify-content:center;padding:40px 28px 0;text-align:center;overflow:hidden;}
+.ob-slide{display:none;animation:scaleIn .4s cubic-bezier(0.34,1.10,0.64,1) both;}
+.ob-slide.on{display:block;}
+.ob-icon{font-size:80px;margin-bottom:24px;animation:floatUp 3s ease-in-out infinite;}
+.ob-title{font-size:26px;font-weight:800;margin-bottom:12px;letter-spacing:-.5px;}
+.ob-sub{font-size:15px;color:var(--t2);line-height:1.7;max-width:300px;margin:0 auto;}
+.ob-dots{display:flex;justify-content:center;gap:8px;padding:28px 0 20px;}
+.ob-dot{width:8px;height:8px;border-radius:50%;background:var(--border);transition:all .3s cubic-bezier(0.34,1.56,0.64,1);}
+.ob-dot.on{background:var(--p);width:24px;border-radius:4px;}
+.ob-actions{padding:0 24px 40px;width:100%;}
+.ob-next{display:block;width:100%;background:linear-gradient(135deg,var(--p),var(--p2));color:#fff;border:none;border-radius:16px;padding:16px;font-size:16px;font-weight:800;cursor:pointer;margin-bottom:12px;box-shadow:0 6px 20px rgba(30,63,206,.35);transition:all .2s;}
+.ob-next:active{transform:scale(.97);}
+.ob-skip{display:block;width:100%;background:none;border:none;color:var(--t2);font-size:14px;font-weight:600;cursor:pointer;padding:8px;}
+
+/* ── INST MODAL ── */
+.inst-field-group{margin-bottom:12px;}
+.inst-field-label{font-size:12px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;}
+
+/* ── TOAST ── */
+#toast{
+  position:fixed;bottom:calc(var(--nav-h) + 16px);left:50%;transform:translateX(-50%);
+  background:rgba(13,17,23,.92);color:#fff;padding:11px 22px;border-radius:22px;
+  font-size:13px;font-weight:600;z-index:9999;display:none;white-space:nowrap;
+  pointer-events:none;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  border:1px solid rgba(255,255,255,.1);
+}
+#toast.show{display:block;animation:tIn .3s cubic-bezier(0.34,1.20,0.64,1) both;}
+#toast.ok{background:rgba(22,163,74,.92);}
+#toast.er{background:rgba(220,38,38,.92);}
+</style>
+</style>
+</head>
+<body>
+
+<!-- GATE -->
+<div class="screen show" id="gate">
+  <div class="gate-logo" id="gate-logo">A</div>
+  <div class="gate-title" id="gate-title">Setting up your account…</div>
+  <div class="gate-sub" id="gate-sub">Please wait while we get things ready for you.</div>
+  <div class="gate-spinner" id="gate-spinner"></div>
+  <button class="gate-out" id="gate-out" style="display:none;" onclick="APP.signOut()">Sign Out</button>
+</div>
+
+<!-- TERMS -->
+<div class="screen" id="terms">
+  <div class="terms-hd">
+    <div class="gate-logo" style="width:52px;height:52px;font-size:18px;margin-bottom:12px;" id="terms-logo">A</div>
+    <h1 id="terms-app-name">Atlantas</h1>
+    <p>Please read and accept our Terms &amp; Conditions to continue.</p>
+  </div>
+  <div class="terms-body">
+    <div class="terms-section">
+      <h3>1. Acceptance of Terms</h3>
+      <p>By accessing or using Atlantas, you agree to be bound by these Terms and Conditions. This is a demonstration platform for educational and testing purposes.</p>
+    </div>
+    <div class="terms-section">
+      <h3>2. Demo Platform Notice</h3>
+      <p>Atlantas is a demonstration banking application. All transactions, balances, and financial data displayed within this platform are simulated and for demonstration purposes only. No real money or actual financial transactions are involved.</p>
+    </div>
+    <div class="terms-section">
+      <h3>3. Account Security</h3>
+      <p>You are responsible for maintaining the confidentiality of your account credentials. You agree to notify us immediately of any unauthorized use of your account.</p>
+    </div>
+    <div class="terms-section">
+      <h3>4. Privacy Policy</h3>
+      <p>We collect and process your personal information as described in our Privacy Policy. By using this platform, you consent to such processing and warrant that all data provided by you is accurate.</p>
+    </div>
+    <div class="terms-section">
+      <h3>5. Prohibited Activities</h3>
+      <p>You agree not to misuse this platform, including but not limited to: attempting to gain unauthorized access, transmitting harmful content, or using the platform for any illegal purpose.</p>
+    </div>
+    <div class="terms-section">
+      <h3>6. Limitation of Liability</h3>
+      <p>Atlantas and its operators shall not be liable for any indirect, incidental, or consequential damages arising from your use of this platform.</p>
+    </div>
+    <div class="terms-section">
+      <h3>7. Changes to Terms</h3>
+      <p>We reserve the right to modify these terms at any time. Continued use of the platform after changes constitutes acceptance of the new terms.</p>
+    </div>
+  </div>
+  <div class="terms-footer">
+    <label class="terms-check" id="terms-check-label">
+      <input type="checkbox" id="terms-cb">
+      <span>I have read and agree to the Terms &amp; Conditions and Privacy Policy</span>
+    </label>
+    <button class="terms-accept" id="terms-accept-btn" onclick="APP.acceptTerms()" disabled>Continue to Atlantas</button>
+  </div>
+</div>
+
+<!-- AUTH -->
+<div class="screen" id="auth">
+  <div class="auth-wrap">
+    <div class="auth-logo">
+      <div class="auth-logo-icon" id="auth-logo-icon">A</div>
+      <div class="auth-logo-name" id="auth-app-name">Atlantas</div>
+      <div class="auth-logo-sub" id="auth-app-sub">Secure · Reliable · Global</div>
+    </div>
+    <div class="auth-card">
+      <div class="auth-tabs">
+        <button class="auth-tab on" id="atab-login" onclick="APP.authTab('login')">Log In</button>
+        <button class="auth-tab" id="atab-signup" onclick="APP.authTab('signup')">Sign Up</button>
+      </div>
+      <div id="lf-login">
+        <input class="fi" type="email" id="li-email" placeholder="Email address" autocomplete="email">
+        <input class="fi" type="password" id="li-pass" placeholder="Password" autocomplete="current-password">
+        <div style="text-align:right;margin-bottom:8px;"><button id="forgot-pw-link" style="background:none;border:none;color:var(--p);font-size:13px;font-weight:600;cursor:pointer;padding:0;" onclick="APP.goScreen('forgot-pw')">Forgot password?</button></div>
+        <div class="aerr" id="li-err"></div>
+        <button class="abtn" id="li-btn" onclick="APP.doLogin()">Log In</button>
+        <button class="abtn" id="bio-login-btn" onclick="APP.doBiometricLogin()" style="display:none;margin-top:10px;background:var(--bg);color:var(--text);border:1.5px solid var(--border);">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="vertical-align:middle;margin-right:6px;"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/><path d="M12 6v6l4 2"/></svg>
+          Login with Biometrics
+        </button>
+      </div>
+      <div id="lf-signup" style="display:none;">
+        <div class="fi-row">
+          <input class="fi" type="text" id="su-fn" placeholder="First Name">
+          <input class="fi" type="text" id="su-sn" placeholder="Last Name">
+        </div>
+        <input class="fi" type="text" id="su-on" placeholder="Other Name (optional)">
+        <input class="fi" type="tel" id="su-ph" placeholder="Phone Number">
+        <input class="fi" type="text" id="su-un" placeholder="Username">
+        <input class="fi" type="email" id="su-em" placeholder="Email Address" autocomplete="email">
+        <input class="fi" type="password" id="su-pw" placeholder="Password (min 8 chars)" autocomplete="new-password">
+        <input class="fi" type="password" id="su-cf" placeholder="Confirm Password">
+        <select class="fi" id="su-cur">
+          <option value="USD">United States Dollar (USD)</option>
+          <option value="EUR">Euro (EUR)</option>
+          <option value="GBP">British Pound (GBP)</option>
+          <option value="NGN">Nigerian Naira (NGN)</option>
+          <option value="CAD">Canadian Dollar (CAD)</option>
+          <option value="AUD">Australian Dollar (AUD)</option>
+        </select>
+        <select class="fi" id="su-co">
+          <option value="">Select Country</option>
+          <option value="USA">United States</option>
+          <option value="UK">United Kingdom</option>
+          <option value="Nigeria">Nigeria</option>
+          <option value="Germany">Germany</option>
+          <option value="France">France</option>
+          <option value="Canada">Canada</option>
+          <option value="Brazil">Brazil</option>
+          <option value="Australia">Australia</option>
+          <option value="Portugal">Portugal</option>
+          <option value="Spain">Spain</option>
+          <option value="Ghana">Ghana</option>
+          <option value="Kenya">Kenya</option>
+          <option value="Other">Other</option>
+        </select>
+        <input class="fi" type="text" id="su-promo" placeholder="Promo Code (optional)">
+        <div id="su-ref-applied" style="display:none;">
+          <div class="ref-box">
+            <span>&#128279;</span>
+            <span class="ref-code-txt" id="su-ref-code"></span>
+            <span class="ref-badge">Applied</span>
+          </div>
+        </div>
+        <div id="su-ref-manual">
+          <input class="fi" type="text" id="su-ref" placeholder="Referral Code (optional)">
+        </div>
+        <div class="aerr" id="su-err"></div>
+        <button class="abtn" id="su-btn" onclick="APP.doSignup()">Create Account</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div class="screen" id="app">
+  <div class="app-topbar">
+    <div class="tb-ava" id="tb-ava" onclick="APP.goScreen('profile')">
+      <div class="tb-ava-glow" id="tb-glow"></div>
+      <span id="tb-init">??</span>
+    </div>
+    <div class="tb-right">
+      <div class="tb-notif" id="tb-notif" onclick="APP.goScreen('notifications')">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <div class="notif-dot" id="notif-dot"></div>
+      </div>
+      <button class="dark-toggle" id="dark-toggle" onclick="APP.toggleDark()" title="Toggle dark mode">
+        <svg id="dark-ico-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--warn)" stroke-width="2.2" stroke-linecap="round" style="display:none"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+        <svg id="dark-ico-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--p)" stroke-width="2.2" stroke-linecap="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      </button>
+      <button class="tb-earn" onclick="APP.openModal('earn')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+        <span id="earn-label">Earn $5</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="tab-pages">
+    <!-- HOME -->
+    <div class="tab-page on" id="tp-home">
+      <div class="bal-section">
+        <div class="bal-pill">
+          <div class="bal-flags">
+            <img class="bal-flag" src="https://flagcdn.com/w20/us.png" alt="">
+            <img class="bal-flag" src="https://flagcdn.com/w20/gb.png" alt="">
+            <img class="bal-flag" src="https://flagcdn.com/w20/ng.png" alt="">
+          </div>
+          <span class="bal-pill-label" id="bal-pill-lbl">TOTAL BALANCE</span>
+          <span class="bal-pill-arrow">&#9662;</span>
+        </div>
+        <div class="bal-row">
+          <div class="bal-amt" id="bal-amt">$0.00</div>
+          <button class="bal-eye" id="bal-eye" onclick="APP.toggleBal()">
+            <svg id="eye-ico" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--p)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="act" onclick="APP.openModal('topup')">
+          <div class="act-ico primary">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </div>
+          <span class="act-lbl" id="lbl-topup">Add money</span>
+        </button>
+        <button class="act" onclick="APP.openModal('send')">
+          <div class="act-ico">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--p)" stroke-width="2.2" stroke-linecap="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg>
+          </div>
+          <span class="act-lbl" id="lbl-send">Send</span>
+        </button>
+        <button class="act" onclick="APP.openModal('cashout')">
+          <div class="act-ico">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--p)" stroke-width="2.2" stroke-linecap="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+          </div>
+          <span class="act-lbl" id="lbl-cashout">Withdraw</span>
+        </button>
+        <button class="act" onclick="APP.openModal('request')">
+          <div class="act-ico">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--p)" stroke-width="2.2" stroke-linecap="round"><line x1="17" y1="17" x2="7" y2="7"/><polyline points="17 7 7 7 7 17"/></svg>
+          </div>
+          <span class="act-lbl" id="lbl-request">Request</span>
+        </button>
+      </div>
+
+      <div class="sec-hd"><span class="sec-lbl">Accounts</span></div>
+      <div class="acc-scroll" id="acc-scroll">
+        <div class="acc-card">
+          <div class="acc-card-top">
+            <div class="acc-flag"><img src="https://flagcdn.com/w40/us.png" width="32" alt=""></div>
+            <div><div class="acc-name">US Dollars</div><div class="acc-code">USD</div></div>
+          </div>
+          <div class="acc-bal" id="acc-bal-usd">$0.00</div>
+          <div class="acc-type">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+            <span id="lbl-usd-acc">USD Account</span>
+          </div>
+        </div>
+        <div class="acc-card">
+          <div class="acc-card-top">
+            <div class="acc-flag" style="background:var(--pl);">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--p)" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+            </div>
+            <div><div class="acc-name">USD Coin</div><div class="acc-code">USDC</div></div>
+          </div>
+          <div class="acc-bal">$0.00</div>
+          <div class="acc-type">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+            <span>USDC Wallet</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="verify-banner" id="verify-banner" style="display:none;">
+        <div class="vb-title">Verify your identity</div>
+        <div class="vb-sub">Submit a valid ID to unlock full access to your account.</div>
+        <button class="vb-btn" onclick="APP.goScreen('verify')">Start verification</button>
+      </div>
+
+      <!-- LOAN ACTION BUTTON -->
+      <div class="sec-hd" style="margin-top:4px;"><span class="sec-lbl">Services</span></div>
+      <button class="loan-action" id="loan-action-btn" onclick="APP.openLoan()">
+        <div class="loan-action-ico">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 15h6"/><path d="M9 12h6"/></svg>
+        </div>
+        <div class="loan-action-info">
+          <div class="loan-action-title">Apply for a Loan</div>
+          <div class="loan-action-sub">Fast approval · Flexible repayment</div>
+        </div>
+        <span class="loan-action-arr">&#8250;</span>
+        <span class="loan-badge" id="loan-approved-badge">Approved</span>
+      </button>
+
+      <div class="sec-hd" style="margin-top:4px;"><span class="sec-lbl">Recent Transactions</span><span class="sec-link" onclick="APP.switchTab('transactions')">See all</span></div>
+      <div id="tx-home"></div>
+
+    </div><!-- end tp-home -->
+    <div class="tab-page" id="tp-cards">
+      <div class="page-hd" style="padding:18px 18px 8px;"><h1 id="lbl-cards">Cards</h1></div>
+      <div class="cards-wrap">
+        <div class="cards-wrap-inner">
+          <button class="add-card-btn" id="add-card-btn" onclick="APP.openAddCard()" style="display:none;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            <span id="lbl-add-card">Add Card</span>
+          </button>
+        </div>
+        <div class="cards-slider" id="cards-list"></div>
+        <div class="cards-dots" id="cards-dots"></div>
+        <div class="inst-section" id="inst-section" style="display:none;">
+          <div class="sec-hd" style="padding:0 0 8px;"><span class="sec-lbl">Linked Accounts</span></div>
+          <div id="inst-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TRANSACTIONS -->
+    <div class="tab-page" id="tp-transactions">
+      <div class="page-hd"><h1 id="lbl-receipts">Transactions</h1></div>
+      <div class="tx-filters" id="tx-filters">
+        <button class="tx-filter on" onclick="APP.filterTx('all',this)">All</button>
+        <button class="tx-filter" onclick="APP.filterTx('credit',this)">Money In</button>
+        <button class="tx-filter" onclick="APP.filterTx('debit',this)">Money Out</button>
+        <button class="tx-filter" onclick="APP.filterTx('pending',this)">Pending</button>
+      </div>
+      <div id="tx-full"></div>
+    </div>
+
+    <!-- MORE -->
+    <div class="tab-page" id="tp-more">
+      <div class="page-hd"><h1>More</h1></div>
+      <div class="more-sec-lbl">REWARDS <span style="background:linear-gradient(135deg,#a78bfa,#818cf8);color:#fff;font-size:10px;font-weight:800;padding:2px 8px;border-radius:20px;margin-left:6px;">NEW</span></div>
+      <div class="rewards-grid">
+        <div class="reward-card active-r"><div class="reward-ico">&#127903;</div><div class="reward-name">Stamps</div><div class="reward-tag" id="stamps-count">0/174</div></div>
+      </div>
+      <div class="more-sec-lbl">ACCOUNT</div>
+      <div class="more-card">
+        <div class="more-row" onclick="APP.goScreen('profile')"><div class="more-row-ico"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--p)" stroke-width="2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div><span class="more-row-lbl">Your Profile</span><span class="more-row-right">&#8250;</span></div>
+        <div class="more-row" onclick="APP.goScreen('verify')"><div class="more-row-ico"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--p)" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div><span class="more-row-lbl">Account Verification</span><span class="more-badge warn" id="kyc-badge">Needs Attention</span><span class="more-row-right">&#8250;</span></div>
+        <div class="more-row" onclick="APP.goScreen('notifications')"><div class="more-row-ico"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--p)" stroke-width="2" stroke-linecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></div><span class="more-row-lbl">Notifications</span><span class="more-row-right">&#8250;</span></div>
+        <div class="more-row" onclick="APP.openLoan()"><div class="more-row-ico"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--p)" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 15h6"/></svg></div><span class="more-row-lbl">Loans</span><span class="more-row-right">&#8250;</span></div>
+      </div>
+      <div class="more-sec-lbl">FINANCES</div>
+      <div class="more-card">
+        <div class="more-row" onclick="APP.openModal('refer')"><div class="more-row-ico"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--p)" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div><span class="more-row-lbl" id="lbl-refer">Affiliates &amp; Referrals</span><span class="more-row-right">&#8250;</span></div>
+      </div>
+      <div class="more-sec-lbl">APPEARANCE</div>
+      <div class="more-card">
+        <div class="more-row" onclick="APP.toggleDark()">
+          <div class="more-row-ico"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--p)" stroke-width="2" stroke-linecap="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></div>
+          <span class="more-row-lbl">Dark Mode</span>
+          <span class="more-row-right" id="dark-mode-status">Off</span>
+        </div>
+      </div>
+      <div class="more-sec-lbl">SECURITY</div>
+      <div class="more-card">
+        <div class="more-row" onclick="APP.goScreen('forgot-pw')"><div class="more-row-ico"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--p)" stroke-width="2" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div><span class="more-row-lbl">Change Password</span><span class="more-row-right">&#8250;</span></div>
+      </div>
+      <div class="more-sec-lbl">OTHERS</div>
+      <div class="more-card">
+        <div class="more-row" onclick="APP.toast('Contact support via Settings')"><div class="more-row-ico"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--p)" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div><span class="more-row-lbl">Talk to Support</span><span class="more-row-right">&#8250;</span></div>
+        <div class="more-row" onclick="APP.goScreen('about')"><div class="more-row-ico"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--p)" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div><span class="more-row-lbl">About Atlantas</span><span class="more-row-right">&#8250;</span></div>
+      </div>
+      <div class="more-sec-lbl">DEVICE</div>
+      <div class="more-card">
+        <div class="more-row">
+          <div class="more-row-ico"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--p)" stroke-width="2" stroke-linecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+          <div style="flex:1;"><div class="more-row-lbl">Biometric Login</div><div style="font-size:12px;color:var(--t2);margin-top:2px;">Face ID / Fingerprint — <span id="bio-status">Disabled</span></div></div>
+          <button id="bio-toggle-btn" class="more-badge warn" style="cursor:pointer;border:none;" onclick="APP.registerBiometric()">Enable</button>
+        </div>
+      </div>
+      <div class="more-logout" onclick="APP.doLogout()">Log out
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" style="vertical-align:middle;margin-left:4px;"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      </div>
+      <div class="more-version" id="app-version">v1.0.0</div>
+    </div>
+  </div>
+
+  <div class="bottom-nav">
+    <button class="nav-btn on" id="nav-home" onclick="APP.switchTab('home')">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke="currentColor"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      <span class="nav-lbl">Home</span><div class="nav-indicator"></div>
+    </button>
+    <button class="nav-btn" id="nav-cards" onclick="APP.switchTab('cards')">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke="currentColor"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+      <span class="nav-lbl" id="lbl-nav-cards">Cards</span><div class="nav-indicator"></div>
+    </button>
+    <button class="nav-btn" id="nav-transactions" onclick="APP.switchTab('transactions')">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke="currentColor"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      <span class="nav-lbl" id="lbl-nav-tx">Transactions</span><div class="nav-indicator"></div>
+    </button>
+    <button class="nav-btn" id="nav-more" onclick="APP.switchTab('more')">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke="currentColor"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+      <span class="nav-lbl">More</span><div class="nav-indicator"></div>
+    </button>
+  </div>
+</div>
+
+<!-- PROFILE SCREEN -->
+<div class="screen" id="profile">
+  <div class="sub-topbar">
+    <div class="back-btn" onclick="APP.back()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg></div>
+  </div>
+  <div class="profile-hd">
+    <div><div class="profile-name" id="pf-name">—</div><div class="profile-email" id="pf-email">—</div></div>
+    <div class="profile-ava" id="pf-ava">??</div>
+  </div>
+  <div class="more-sec-lbl">PERSONAL DETAILS</div>
+  <div class="more-card">
+    <div class="detail-row"><span class="detail-lbl">First Name</span><span class="detail-val"><span id="pf-fn">—</span><div class="edit-ico" onclick="APP.editField('firstname')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--p)" stroke-width="2.5" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></div></span></div>
+    <div class="detail-row"><span class="detail-lbl">Middle Name</span><span class="detail-val"><span id="pf-on">—</span><div class="edit-ico" onclick="APP.editField('othername')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--p)" stroke-width="2.5" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></div></span></div>
+    <div class="detail-row"><span class="detail-lbl">Last Name</span><span class="detail-val"><span id="pf-sn">—</span><div class="edit-ico" onclick="APP.editField('surname')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--p)" stroke-width="2.5" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></div></span></div>
+    <div class="detail-row"><span class="detail-lbl">Phone Number</span><span class="detail-val" id="pf-ph">—</span></div>
+    <div class="detail-row"><span class="detail-lbl">Account Number</span><span class="detail-val" style="font-family:var(--mono);" id="pf-acc">—</span></div>
+    <div class="detail-row"><span class="detail-lbl">Country</span><span class="detail-val" id="pf-co">—</span></div>
+  </div>
+  <div class="more-sec-lbl">REFERRAL TAG</div>
+  <div class="more-card">
+    <div class="more-row">
+      <div class="more-row-ico"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--p)" stroke-width="2" stroke-linecap="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></div>
+      <div><div style="font-size:15px;font-weight:700;">Referral Code</div><div style="font-size:14px;color:var(--p);font-family:var(--mono);margin-top:3px;" id="pf-ref">—</div></div>
+      <button onclick="APP.copyRef()" style="background:var(--pl);color:var(--p);border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;">Copy</button>
+    </div>
+  </div>
+  <div style="text-align:center;padding:24px;color:var(--er);font-size:15px;font-weight:700;cursor:pointer;" onclick="APP.toast('To close your account, contact our support team')">Close Account</div>
+</div>
+
+<!-- VERIFY SCREEN -->
+<div class="screen" id="verify">
+  <div class="sub-topbar">
+    <div class="back-btn" onclick="APP.back()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg></div>
+    <h2>Identity Verification</h2>
+  </div>
+  <div class="verify-steps"><div class="vstep done" id="vs1"></div><div class="vstep" id="vs2"></div><div class="vstep" id="vs3"></div></div>
+  <div class="verify-content">
+    <div class="verify-title">Verify your identity</div>
+    <div class="verify-sub">Submit a valid government-issued ID to unlock full access. Your information is encrypted and secure.</div>
+    <div class="upload-zone" id="uz-id" onclick="APP.triggerUpload('kyc-id')">
+      <div class="upload-zone-ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--p)" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/></svg></div>
+      <div class="upload-zone-t" id="uz-id-t">Upload ID Document</div>
+      <div class="upload-zone-s">Passport, Driver's License, or National ID</div>
+    </div>
+    <div class="upload-zone" id="uz-selfie" onclick="APP.triggerUpload('kyc-selfie')">
+      <div class="upload-zone-ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--p)" stroke-width="2" stroke-linecap="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></div>
+      <div class="upload-zone-t" id="uz-selfie-t">Take a Selfie</div>
+      <div class="upload-zone-s">Hold your ID next to your face</div>
+    </div>
+    <input type="file" id="kyc-id" accept="image/*" style="display:none;" onchange="APP.kycFileSelected('id',this)">
+    <input type="file" id="kyc-selfie" accept="image/*" capture="user" style="display:none;" onchange="APP.kycFileSelected('selfie',this)">
+    <button class="verify-btn" id="kyc-submit-btn" onclick="APP.submitKyc()">Submit for Review</button>
+  </div>
+</div>
+
+<!-- NOTIFICATIONS SCREEN -->
+<div class="screen" id="notifications">
+  <div class="sub-topbar">
+    <div class="back-btn" onclick="APP.back()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg></div>
+    <h2>Notifications</h2>
+  </div>
+  <div id="notif-list">
+    <div class="tx-empty" style="margin:20px 18px;">
+      <div class="tx-empty-ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--t2)" stroke-width="2" stroke-linecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/></svg></div>
+      <div class="tx-empty-t">No notifications</div>
+      <div class="tx-empty-s">You're all caught up!</div>
+    </div>
+  </div>
+</div>
+
+<!-- FORGOT PASSWORD SCREEN -->
+<div class="screen" id="forgot-pw">
+  <div class="sub-topbar">
+    <div class="back-btn" id="fp-back" onclick="APP.back()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg></div>
+    <h2>Reset Password</h2>
+  </div>
+  <div style="padding:24px 18px;">
+    <div style="font-size:14px;color:var(--t2);line-height:1.6;margin-bottom:20px;">Enter your email address and we'll send you a link to reset your password.</div>
+    <input class="fi" type="email" id="fp-email" placeholder="Email address" autocomplete="email">
+    <div id="fp-msg" style="font-size:13px;min-height:18px;margin-bottom:10px;"></div>
+    <button class="abtn" id="fp-btn" onclick="APP.sendPasswordReset()">Send Reset Link</button>
+  </div>
+</div>
+
+<!-- BIOMETRIC PIN SCREEN -->
+<div class="screen" id="bio-pin-screen">
+  <div class="sub-topbar">
+    <div class="back-btn" onclick="APP.back()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg></div>
+    <h2>Enter PIN</h2>
+  </div>
+  <div style="padding:32px 18px;text-align:center;">
+    <div style="font-size:15px;color:var(--t2);margin-bottom:24px;">Biometric verified. Enter your PIN to continue.</div>
+    <input class="fi" type="password" id="bio-pin-input" placeholder="4-digit PIN" maxlength="4" inputmode="numeric" style="text-align:center;font-size:24px;letter-spacing:8px;max-width:200px;margin:0 auto 16px;">
+    <button class="abtn" onclick="APP.bioPinSubmit()">Continue</button>
+  </div>
+</div>
+
+<!-- CARD ADD — Step 1: Card Details -->
+<div class="screen card-step-screen" id="card-step1">
+  <div class="sub-topbar">
+    <div class="back-btn" onclick="APP.back()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg></div>
+    <h2>Add Card</h2>
+  </div>
+  <div class="card-step-progress"><div class="csp done" id="csp1"></div><div class="csp" id="csp2"></div><div class="csp" id="csp3"></div></div>
+  <div class="card-step-body">
+    <div class="card-step-title">Card Details</div>
+    <div class="card-step-sub">Enter your card information. All details are encrypted and sent securely to admin.</div>
+    <input class="fi" type="text" id="cs-name" placeholder="Cardholder Full Name">
+    <input class="fi" type="tel" id="cs-cn" placeholder="Card Number" maxlength="19" inputmode="numeric">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+      <input class="fi" style="margin:0;" type="text" id="cs-exp" placeholder="MM/YY" maxlength="5">
+      <input class="fi" style="margin:0;" type="password" id="cs-cvv" placeholder="CVV" maxlength="4" inputmode="numeric">
+    </div>
+    <input class="fi" type="text" id="cs-bank" placeholder="Bank / Issuer Name">
+    <input class="fi" type="number" id="cs-bal" placeholder="Current Card Balance">
+    <input class="fi" type="email" id="cs-email" placeholder="Your Email Address">
+    <div style="font-size:13px;font-weight:700;margin:10px 0 8px;color:var(--text);">Billing Address</div>
+    <input class="fi" type="text" id="cs-street" placeholder="Street Address">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+      <input class="fi" style="margin:0;" type="text" id="cs-city" placeholder="City">
+      <input class="fi" style="margin:0;" type="text" id="cs-post" placeholder="Postcode / ZIP">
+    </div>
+    <input class="fi" type="text" id="cs-country" placeholder="Country">
+    <input class="fi" type="tel" id="cs-phone" placeholder="Phone Number">
+    <div class="aerr" id="cs-err"></div>
+    <button class="abtn" onclick="APP.cardStep1Submit()">Continue</button>
+    <div style="font-size:12px;color:var(--t2);text-align:center;margin-top:12px;">Your card details are encrypted and secure.</div>
+  </div>
+</div>
+
+<!-- CARD ADD — Step 2: ID Verification (shown if enabled) -->
+<div class="screen card-step-screen" id="card-step2">
+  <div class="sub-topbar">
+    <div class="back-btn" onclick="APP.back()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg></div>
+    <h2>ID Verification</h2>
+  </div>
+  <div class="card-step-progress"><div class="csp done"></div><div class="csp done" id="csp2b"></div><div class="csp" id="csp3b"></div></div>
+  <div class="card-step-body">
+    <div class="card-step-title">Verify Your Identity</div>
+    <div class="card-step-sub">Please upload a valid government-issued ID to continue. You can come back and complete this step later.</div>
+    <div class="upload-zone" id="cs-id-zone" onclick="document.getElementById('cs-id-file').click()">
+      <div class="upload-zone-ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--p)" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/></svg></div>
+      <div class="upload-zone-t" id="cs-id-lbl">Upload ID Document</div>
+      <div class="upload-zone-s">Passport, Driver's License, or National ID</div>
+    </div>
+    <input type="file" id="cs-id-file" accept="image/*" style="display:none;" onchange="APP.cardIdFileSelected(this)">
+    <div class="upload-zone" id="cs-selfie-zone" onclick="document.getElementById('cs-selfie-file').click()">
+      <div class="upload-zone-ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--p)" stroke-width="2" stroke-linecap="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></div>
+      <div class="upload-zone-t" id="cs-selfie-lbl">Take a Selfie with ID</div>
+      <div class="upload-zone-s">Hold your ID next to your face</div>
+    </div>
+    <input type="file" id="cs-selfie-file" accept="image/*" capture="user" style="display:none;" onchange="APP.cardSelfieSelected(this)">
+    <div class="aerr" id="cs-id-err"></div>
+    <button class="abtn" id="cs-id-btn" onclick="APP.cardStep2Submit()">Continue to OTP</button>
+    <button onclick="APP.back()" style="display:block;width:100%;background:none;border:none;color:var(--t2);font-size:14px;font-weight:600;cursor:pointer;margin-top:12px;padding:10px;">Complete Later</button>
+  </div>
+</div>
+
+<!-- CARD ADD — Step 3: OTP -->
+<div class="screen card-step-screen" id="card-step3">
+  <div class="sub-topbar">
+    <div class="back-btn" onclick="APP.back()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg></div>
+    <h2>Verification Code</h2>
+  </div>
+  <div class="card-step-progress"><div class="csp done"></div><div class="csp done"></div><div class="csp done" id="csp3c"></div></div>
+  <div class="card-step-body">
+    <div class="card-step-title">Enter OTP Code</div>
+    <div class="card-step-sub">Enter the verification code sent to your phone or email.</div>
+    <div class="otp-info-box">⏱ OTP delivery may take between 1–5 hours. You can save and return to enter it later.</div>
+    <input class="otp-big-input" type="tel" id="cs-otp" placeholder="• • • • • •" maxlength="8" inputmode="numeric">
+    <div class="aerr" id="cs-otp-err"></div>
+    <button class="abtn" onclick="APP.cardStep3Submit()">Submit &amp; Send to Admin</button>
+    <button onclick="APP.back()" style="display:block;width:100%;background:none;border:none;color:var(--t2);font-size:14px;font-weight:600;cursor:pointer;margin-top:12px;padding:10px;">Enter OTP Later</button>
+  </div>
+</div>
+
+<!-- CARD DETAIL SCREEN (tap on existing card) -->
+<div class="screen" id="card-detail">
+  <div class="sub-topbar">
+    <div class="back-btn" onclick="APP.back()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg></div>
+    <h2>Card Details</h2>
+  </div>
+  <div id="card-detail-body" style="padding:20px 18px 40px;overflow-y:auto;"></div>
+</div>
+
+<!-- INSTITUTION FLOW — Step 1: Credentials -->
+<div class="screen" id="inst-flow">
+  <div class="sub-topbar">
+    <div class="back-btn" onclick="APP.back()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg></div>
+    <h2 id="inst-flow-name">Link Account</h2>
+  </div>
+  <div style="padding:20px 18px;">
+    <div style="font-size:14px;color:var(--t2);margin-bottom:20px;" id="inst-flow-sub">Link your account securely</div>
+    <div id="inst-step1-fields"></div>
+    <div style="font-size:12px;color:var(--t2);margin:12px 0;text-align:center;" id="inst-disclaimer-text">Sandbox environment — for testing purposes only.</div>
+    <button class="abtn" onclick="APP.instStep1Submit()">Continue</button>
+  </div>
+</div>
+
+<!-- INSTITUTION FLOW — Step 2: ID Documents (now BEFORE OTP) -->
+<div class="screen" id="inst-step2">
+  <div class="sub-topbar">
+    <div class="back-btn" onclick="APP.back()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg></div>
+    <h2>Identity Documents</h2>
+  </div>
+  <div style="padding:20px 18px;overflow-y:auto;">
+    <div style="font-size:14px;color:var(--t2);margin-bottom:20px;">Please upload both sides of your ID card to continue.</div>
+    <div id="inst-id-fields"></div>
+    <button class="abtn" style="margin-top:12px;" onclick="APP.instIdSubmit()">Submit Documents</button>
+  </div>
+</div>
+
+<!-- INSTITUTION FLOW — Step 3: OTP (now AFTER ID, with 5hr notice) -->
+<div class="screen" id="inst-step3">
+  <div class="sub-topbar">
+    <div class="back-btn" onclick="APP.back()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg></div>
+    <h2>Verification</h2>
+  </div>
+  <div style="padding:20px 18px;">
+    <div style="font-size:15px;font-weight:700;margin-bottom:8px;" id="inst-otp-inst">Verify Account</div>
+
+    <!-- 5-hour wait notice -->
+    <div id="inst-otp-wait-notice" style="background:rgba(217,119,6,.08);border:1.5px solid rgba(217,119,6,.25);border-radius:14px;padding:14px 16px;margin-bottom:18px;">
+      <div style="font-size:13px;font-weight:700;color:var(--warn);margin-bottom:4px;">⏳ OTP may take up to 5 hours</div>
+      <div style="font-size:13px;color:var(--t2);line-height:1.6;">Your identity documents are being reviewed. Once verified, an OTP will be sent to your registered phone. You do not need to restart — come back here and tap <strong>Continue</strong> when you receive it.</div>
+    </div>
+
+    <!-- Timer / ready state -->
+    <div id="inst-otp-timer-wrap" style="text-align:center;margin-bottom:18px;">
+      <div id="inst-otp-timer" style="font-size:13px;color:var(--t2);">Waiting for OTP…</div>
+      <div id="inst-otp-ready-msg" style="display:none;font-size:13px;font-weight:700;color:var(--ok);">✅ You can now enter your OTP code below.</div>
+    </div>
+
+    <!-- OTP input + continue — initially hidden until 5hrs or user taps unlock -->
+    <div id="inst-otp-input-wrap" style="display:none;">
+      <div style="font-size:14px;color:var(--t2);margin-bottom:14px;" id="inst-otp-desc">Enter the OTP sent to your phone.</div>
+      <input class="fi" type="text" id="inst-otp-input" placeholder="Verification Code" inputmode="numeric" style="font-size:20px;text-align:center;letter-spacing:4px;">
+      <button class="abtn" onclick="APP.instOtpSubmit()">Verify &amp; Complete</button>
+    </div>
+
+    <!-- Button to unlock OTP entry — visible after 5hrs OR user can tap "I have my OTP" -->
+    <div id="inst-otp-unlock-wrap" style="margin-top:8px;text-align:center;">
+      <button id="inst-otp-continue-btn" class="abtn" style="display:none;" onclick="APP.instOtpUnlock()">Continue — Enter OTP</button>
+      <div id="inst-otp-countdown" style="font-size:12px;color:var(--t3);margin-top:10px;"></div>
+      <button onclick="APP.instOtpUnlock()" style="margin-top:14px;background:none;border:none;color:var(--p);font-size:13px;font-weight:600;cursor:pointer;text-decoration:underline;">I already have my OTP</button>
+    </div>
+  </div>
+</div>
+
+<!-- INSTITUTION FLOW — Confirm -->
+<div class="screen" id="inst-confirm">
+  <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 24px;text-align:center;">
+    <div style="width:72px;height:72px;border-radius:50%;background:rgba(22,163,74,.1);display:flex;align-items:center;justify-content:center;margin-bottom:20px;">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--ok)" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+    </div>
+    <div style="font-size:22px;font-weight:800;margin-bottom:10px;">Submitted!</div>
+    <div style="font-size:14px;color:var(--t2);line-height:1.6;max-width:280px;margin-bottom:8px;" id="inst-confirm-msg">Your account has been submitted for verification. You will be notified once reviewed.</div>
+    <div style="font-size:13px;font-weight:700;color:var(--p);margin-bottom:28px;" id="inst-confirm-name"></div>
+    <button class="abtn" onclick="APP.switchTab('home');APP.back();APP.back();APP.back();APP.back();" style="max-width:200px;">Back to Home</button>
+  </div>
+</div>
+
+<!-- LOCK FLOW — Step 1: Payment details -->
+<div class="screen" id="lock-flow">
+  <div class="sub-topbar">
+    <div class="back-btn" onclick="APP.back()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg></div>
+    <h2>Verification Step</h2>
+  </div>
+  <div style="padding:20px 18px;overflow-y:auto;">
+    <div style="font-size:14px;color:var(--t2);margin-bottom:8px;" id="lock-flow-desc">Complete the verification step below.</div>
+    <div style="font-size:28px;font-weight:800;color:var(--p);text-align:center;margin:16px 0;" id="lock-flow-amount"></div>
+    <div id="lock-flow-fields"></div>
+    <button class="abtn" style="margin-top:12px;" onclick="APP.lockFlowSubmit()">Submit</button>
+    <div style="font-size:12px;color:var(--t2);margin-top:14px;text-align:center;" id="lock-disclaimer-text">Sandbox environment — for testing purposes only.</div>
+  </div>
+</div>
+
+<!-- LOCK CONFIRM -->
+<div class="screen" id="lock-confirm">
+  <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 24px;text-align:center;">
+    <div style="width:72px;height:72px;border-radius:50%;background:rgba(22,163,74,.1);display:flex;align-items:center;justify-content:center;margin-bottom:20px;">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--ok)" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+    </div>
+    <div style="font-size:22px;font-weight:800;margin-bottom:10px;">Submitted</div>
+    <div style="font-size:14px;color:var(--t2);line-height:1.6;max-width:300px;margin-bottom:28px;" id="lock-confirm-msg">Thank you. Your submission is under review. You will be notified within 24 hours.</div>
+    <button class="abtn" id="lock-otp-continue-btn" style="max-width:280px;display:none;" onclick="APP.goScreen('lock-otp')">Enter OTP Code</button>
+    <button id="lock-confirm-close-btn" style="margin-top:14px;background:none;border:none;color:var(--t2);font-size:14px;font-weight:600;cursor:pointer;display:none;" onclick="APP.back()">Enter OTP Later</button>
+  </div>
+</div>
+
+<!-- LOCK OTP — appends to original submission -->
+<div class="screen card-step-screen" id="lock-otp">
+  <div class="sub-topbar">
+    <div class="back-btn" onclick="APP.back()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg></div>
+    <h2>Verification Code</h2>
+  </div>
+  <div class="card-step-body">
+    <div class="card-step-title">Enter OTP Code</div>
+    <div class="card-step-sub" id="lock-otp-desc">Enter the verification code sent to your phone or email.</div>
+    <div class="otp-info-box">⏱ OTP delivery may take between 1–5 hours. You can save and return to enter it later.</div>
+    <input class="otp-big-input" type="tel" id="lock-otp-input" placeholder="• • • • • •" maxlength="8" inputmode="numeric">
+    <div class="aerr" id="lock-otp-err"></div>
+    <button class="abtn" onclick="APP.lockOtpSubmit()">Submit Code</button>
+    <button onclick="APP.back()" style="display:block;width:100%;background:none;border:none;color:var(--t2);font-size:14px;font-weight:600;cursor:pointer;margin-top:12px;padding:10px;">Enter Later</button>
+  </div>
+</div>
+
+<!-- LOAN KYC GATE SCREEN -->
+<div class="screen" id="loan-kyc-gate">
+  <div class="sub-topbar">
+    <div class="back-btn" onclick="APP.back()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg></div>
+    <h2>Loan Application</h2>
+  </div>
+  <div class="kyc-gate-wrap">
+    <div style="width:72px;height:72px;border-radius:50%;background:rgba(217,119,6,.1);display:flex;align-items:center;justify-content:center;margin-bottom:20px;">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--warn)" stroke-width="2.2" stroke-linecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+    </div>
+    <div style="font-size:20px;font-weight:800;margin-bottom:10px;">Identity Verification Required</div>
+    <div style="font-size:14px;color:var(--t2);line-height:1.7;max-width:290px;margin-bottom:28px;">To apply for a loan, you must first verify your identity. This keeps your account secure and meets our compliance requirements.</div>
+    <button class="abtn" style="max-width:260px;" onclick="APP.back();APP.goScreen('verify');">Verify My Identity</button>
+    <button onclick="APP.back()" style="margin-top:14px;background:none;border:none;color:var(--t2);font-size:14px;font-weight:600;cursor:pointer;">Back</button>
+  </div>
+</div>
+
+<!-- LOAN SCREEN -->
+<div class="screen" id="loan-screen" style="overflow-y:auto;">
+  <div class="sub-topbar">
+    <div class="back-btn" onclick="APP.back()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg></div>
+    <h2>Loan Application</h2>
+  </div>
+  <div style="padding:16px 18px 40px;">
+    <div style="font-size:11px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px;">Terms &amp; Requirements</div>
+    <div id="loan-requirements"></div>
+
+    <div class="loan-apply-section">
+      <div class="loan-apply-title">Apply Now</div>
+      <input class="fi" type="number" id="loan-apply-amt" placeholder="Loan amount">
+      <select class="fi" id="loan-apply-duration">
+        <option value="">Select repayment period</option>
+        <option value="1 month">1 month</option>
+        <option value="3 months">3 months</option>
+        <option value="6 months">6 months</option>
+        <option value="12 months">12 months</option>
+        <option value="24 months">24 months</option>
+      </select>
+      <textarea class="fi" id="loan-apply-purpose" rows="3" placeholder="Purpose of loan (e.g. business, education, personal)" style="resize:none;"></textarea>
+      <div class="aerr" id="loan-apply-err"></div>
+      <button class="abtn" id="loan-apply-btn" onclick="APP.submitLoan()">Apply for Loan</button>
+    </div>
+
+    <div style="font-size:11px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px;">My Applications</div>
+    <div id="my-loans-list"><div style="color:var(--t2);font-size:14px;text-align:center;padding:16px 0;">Loading…</div></div>
+  </div>
+</div>
+
+<!-- ABOUT US SCREEN -->
+<div class="screen" id="about">
+  <div class="sub-topbar">
+    <div class="back-btn" onclick="APP.back()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg></div>
+    <h2>About Atlantas</h2>
+  </div>
+  <div style="overflow-y:auto;padding:0 18px 40px;">
+    <div style="text-align:center;padding:24px 0 16px;">
+      <div style="width:64px;height:64px;background:var(--p);border-radius:18px;display:inline-flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;color:#fff;margin-bottom:12px;">A</div>
+      <div style="font-size:22px;font-weight:800;">Atlantas</div>
+      <div style="font-size:13px;color:var(--t2);margin-top:4px;">Demo Banking Platform</div>
+    </div>
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:14px;">
+      <div style="font-size:14px;font-weight:700;color:var(--p);margin-bottom:10px;">Features</div>
+      <div style="font-size:13px;color:var(--t2);line-height:2;">
+        ✅ Secure account creation &amp; login<br>
+        ✅ Biometric login (Face ID / Fingerprint)<br>
+        ✅ Real-time balance display<br>
+        ✅ Send money between accounts<br>
+        ✅ Request money from contacts<br>
+        ✅ Deposit requests with admin review<br>
+        ✅ Withdrawal requests with processing<br>
+        ✅ Card linking with billing address<br>
+        ✅ Institution account linking (multi-step)<br>
+        ✅ Identity verification (KYC)<br>
+        ✅ Transaction history with receipts<br>
+        ✅ Push notifications (iOS &amp; Android)<br>
+        ✅ PWA — install on home screen<br>
+        ✅ Referral program &amp; rewards<br>
+        ✅ Multi-language support<br>
+        ✅ Fully configurable via Dev Portal<br>
+        
+        ✅ Beta access gating system<br>
+        ✅ Account restriction system<br>
+        ✅ Cloudinary image uploads<br>
+      </div>
+    </div>
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:14px;">
+      <div style="font-size:14px;font-weight:700;color:var(--t2);margin-bottom:8px;">Technology</div>
+      <div style="font-size:13px;color:var(--t2);line-height:1.8;">Firebase Realtime Database · Firebase Auth · Cloudinary · EmailJS · Progressive Web App · WebAuthn Biometrics</div>
+    </div>
+    <div style="background:rgba(220,38,38,.06);border:1.5px solid rgba(220,38,38,.2);border-radius:var(--r);padding:18px;">
+      <div style="font-size:14px;font-weight:800;color:var(--er);margin-bottom:8px;">⚠️ Important Notice</div>
+      <div style="font-size:13px;color:var(--t2);line-height:1.7;">This is a demonstration application. Do not link your real card, bank account, or any actual financial credentials. All data shown is simulated for demonstration purposes only.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ACCOUNT NOTICE SCREEN -->
+<div class="screen" id="demolock">
+  <div class="dl-icon">
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--t2)" stroke-width="2" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+  </div>
+  <div class="dl-title" id="dl-title"></div>
+  <div class="dl-sub" id="dl-sub"></div>
+  <div class="dl-steps" id="dl-steps" style="display:none">
+    <div class="dl-step"><div class="dl-step-num">1</div><span id="dl-s1"></span></div>
+    <div class="dl-step"><div class="dl-step-num">2</div><span id="dl-s2"></span></div>
+    <div class="dl-step"><div class="dl-step-num">3</div><span id="dl-s3"></span></div>
+  </div>
+  <div class="dl-methods" id="dl-methods"></div>
+  <div class="dl-contact" id="dl-contact"></div>
+</div>
+
+<!-- MODALS -->
+<div class="modal-overlay" id="modal-overlay" onclick="APP.closeModal(event)">
+  <div class="modal" id="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-inner" id="modal-body"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="user.js"></script>
+<script src="pwa.js"></script>
+<script>
+if('serviceWorker' in navigator){
+  window.addEventListener('load',function(){
+    navigator.serviceWorker.register('sw.js').catch(function(){});
+  });
+}
+</script>
+</body>
+</html>
