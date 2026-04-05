@@ -256,16 +256,26 @@ async function APP_doBiometricLogin(){
 function APP_bioPinSubmit(){
   var pin=($('bio-pin-input')&&$('bio-pin-input').value)||'';
   var email=window._bioPendingEmail;if(!pin||!email)return;
+  var btn=$('bio-pin-submit-btn');if(btn){btn.textContent='Verifying…';btn.disabled=true;}
   _db.ref(DB.users).orderByChild('email').equalTo(email).once('value',function(snap){
-    if(!snap.exists()){APP_toast('Account not found','er');return;}
+    if(!snap.exists()){APP_toast('Account not found','er');if(btn){btn.textContent='Continue';btn.disabled=false;}return;}
     var uid=Object.keys(snap.val())[0];
-    if((snap.val()[uid].pin||'')===pin){
-        APP_toast('\u2705 Biometric verified!','ok');
-        // Store the uid so we can redirect after auth — user must still login normally
-        // (Firebase auth requires password; biometric only verifies PIN identity)
-        setTimeout(function(){_show('auth',false);var em=$('li-email');if(em)em.value=email;},1000);
-      }
-    else APP_toast('Incorrect PIN','er');
+    var ud=snap.val()[uid];
+    if((ud.pin||'')=== String(pin)){
+      APP_toast('\u2705 Verified!','ok');
+      // Pre-fill email and focus password — user just needs to enter password once
+      setTimeout(function(){
+        _show('auth',false);
+        APP_authTab('login');
+        var em=$('li-email');if(em)em.value=email;
+        var pw=$('li-pass');if(pw){pw.focus();}
+        var bioBtn=$('bio-login-btn');if(bioBtn)bioBtn.style.display='none';
+      },600);
+    } else {
+      APP_toast('Incorrect PIN','er');
+      var inp=$('bio-pin-input');if(inp)inp.value='';
+    }
+    if(btn){btn.textContent='Continue';btn.disabled=false;}
   });
 }
 async function APP_registerBiometric(){
@@ -343,6 +353,11 @@ _auth.onAuthStateChanged(function(user){
 });
 
 function _loadUserData(user){
+  // Save login session info for 30-min re-auth
+  try{
+    localStorage.setItem('atl_session_email',user.email);
+    localStorage.setItem('atl_session_time',Date.now().toString());
+  }catch(e){}
   _db.ref(DB.users+'/'+user.uid).once('value',function(snap){
     _ud=snap.val()||{};_appBooted=true;
     _renderUI();_loadHistory(user.uid);_watchNotifs(user.uid);_watchDemoLock(user.uid);
@@ -504,7 +519,16 @@ function _watchNotifs(uid){
     var notifs=[];var unread=0;
     snap.forEach(function(n){var v=n.val();if(v){notifs.push(Object.assign({},v,{_key:n.key}));if(!v.read)unread++;}});
     notifs.sort(function(a,b){return new Date(b.date)-new Date(a.date);});
-    if(dot)dot.classList.toggle('on',unread>0);if(glow)glow.classList.toggle('on',unread>0);
+    if(dot){
+      if(unread>0){
+        dot.classList.add('on');
+        dot.textContent=unread>9?'9+':String(unread);
+      } else {
+        dot.classList.remove('on');
+        dot.textContent='';
+      }
+    }
+    if(glow)glow.classList.toggle('on',unread>0);
     if(unread>0&&_appBooted){var latest=notifs.find(function(n){return!n.read;});if(latest)_pushNotif('Atlantas',latest.message||'You have a new notification');}
     var html='';
     notifs.forEach(function(n){
@@ -700,47 +724,73 @@ function _renderInstitutions(){
       div.style.borderLeft='3px solid '+(inst.color||'var(--p)');
       var stLabel=linked.status==='authorized'?'Authorized':linked.status==='processing'?'Processing…':'Pending Review';
       var stCls=linked.status==='authorized'?'authorized':linked.status==='processing'?'processing':'pending';
-      div.innerHTML='<div style="display:flex;align-items:center;gap:10px;">'+
+      div.innerHTML='<div style="display:flex;align-items:center;gap:10px;cursor:pointer;">'+
         (inst.logo?'<img src="'+_esc(inst.logo)+'" width="36" height="36" style="border-radius:8px;object-fit:cover;">'
           :'<div class="inst-logo" style="width:36px;height:36px;background:'+(inst.color||'var(--pl)')+'"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--p)" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg></div>')+
         '<div style="flex:1;"><div class="inst-name">'+_esc(inst.name)+'</div>'+
         '<span class="inst-linked-status '+stCls+'">'+stLabel+'</span></div>'+
-        (linked.status==='authorized'?'<span class="inst-arrow" style="color:var(--ok)">&#10003;</span>':'<span class="inst-arrow">&#8250;</span>')+
+        '<span class="inst-arrow">›</span>'+
         '</div>';
-      if(linked.status!=='authorized'){
-        // Check Firebase for a saved pending OTP for this institution
-        (function(instRef,idxRef,divRef){
-          if(!_user)return;
-          _db.ref('atl_inst_pending/'+_user.uid).once('value',function(snap){
-            var saved=snap.val();
-            if(saved&&saved.idx===idxRef){
-              // Show Resume OTP button
-              var resumeBtn=document.createElement('button');
-              resumeBtn.className='abtn';
-              resumeBtn.style.cssText='margin:8px 0 0;font-size:13px;padding:10px;background:var(--warn);';
-              resumeBtn.textContent='⏳ Resume — Enter OTP';
-              resumeBtn.onclick=function(e){
-                e.stopPropagation();
-                _resumeInstOtp(saved);
-              };
-              divRef.appendChild(resumeBtn);
-            } else {
-              divRef.onclick=function(){APP_toast('Awaiting admin authorization. You will be notified when ready.','');};
-            }
-          });
-        })(inst,idx,div);
-      }
+      // Clicking a linked inst opens the detail screen
+      div.onclick=function(){APP_openInstDetail(inst,idx,linked);};
     } else {
       div.className='inst-banner';
       div.style.borderLeft='3px solid '+(inst.color||'var(--p)');
       div.innerHTML='<div class="inst-logo" style="background:'+(inst.color||'var(--pl)')+';">'
         +(inst.logo?'<img src="'+_esc(inst.logo)+'" width="32" height="32" style="border-radius:8px;object-fit:cover;" alt="">'
           :'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--p)" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>')+'</div>'+
-        '<div class="inst-info"><div class="inst-name">'+_esc(inst.name)+'</div><div class="inst-powered">'+_esc(inst.poweredBy||'Link Your Account')+'</div></div><span class="inst-arrow">&#8250;</span>';
+        '<div class="inst-info"><div class="inst-name">'+_esc(inst.name)+'</div><div class="inst-powered">'+_esc(inst.poweredBy||'Link Your Account')+'</div></div><span class="inst-arrow">›</span>';
       div.onclick=function(){_startInstFlow(inst,idx);};
     }
     list.appendChild(div);
   });
+}
+
+// Open institution detail screen — shows status + continue/add options
+function APP_openInstDetail(inst,idx,linked){
+  _setEl('inst-detail-title',inst.name||'Institution');
+  var con=$('inst-detail-linked');if(!con)return;
+  var stLabel=linked.status==='authorized'?'Authorized':linked.status==='processing'?'Processing…':'Pending Review';
+  var stCls=linked.status==='authorized'?'authorized':linked.status==='processing'?'processing':'pending';
+  var stColor=linked.status==='authorized'?'var(--ok)':linked.status==='processing'?'var(--p)':'var(--warn)';
+  var html='<div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px;margin-bottom:14px;text-align:center;">';
+  if(inst.logo)html+='<img src="'+_esc(inst.logo)+'" width="56" height="56" style="border-radius:14px;object-fit:cover;margin-bottom:12px;">';
+  html+='<div style="font-size:18px;font-weight:800;margin-bottom:6px;">'+_esc(inst.name)+'</div>';
+  html+='<span class="inst-linked-status '+stCls+'" style="font-size:13px;padding:6px 16px;">'+stLabel+'</span>';
+  html+='<div style="margin-top:14px;font-size:13px;color:var(--t2);line-height:1.6;">';
+  if(linked.status==='authorized'){
+    html+='Your account is linked and authorized. You can use this institution for withdrawals.';
+  } else if(linked.status==='processing'){
+    html+='Your submission is being reviewed by our team. You will be notified once authorized.';
+  } else {
+    html+='Your account link is pending review. This usually takes a few hours.';
+  }
+  html+='</div></div>';
+  // Continue OTP button if pending
+  if(linked.status!=='authorized'){
+    if(_user){
+      _db.ref('atl_inst_pending/'+_user.uid).once('value',function(snap){
+        var saved=snap.val();
+        if(saved&&saved.idx===idx){
+          var otpBtn=document.createElement('button');
+          otpBtn.className='abtn';
+          otpBtn.style.cssText='width:100%;margin-bottom:10px;background:var(--warn);';
+          otpBtn.innerHTML='⏳ Continue — Enter OTP';
+          otpBtn.onclick=function(){_resumeInstOtp(saved);};
+          con.appendChild(otpBtn);
+        }
+      });
+    }
+  }
+  con.innerHTML=html;
+  // Show "Link Another Account" button always
+  var addBtn=$('inst-detail-add-btn');
+  if(addBtn){addBtn.style.display='';addBtn.onclick=function(){APP_back();_startInstFlow(inst,idx+1<(_cfg.institutions||[]).length?idx:idx);};}
+  APP_goScreen('inst-detail');
+}
+function APP_instDetailAddNew(){
+  // Go back to cards tab and open fresh institution flow
+  APP_back();
 }
 // ── RESUME SAVED OTP FLOW ────────────────────────────────────
 function _resumeInstOtp(saved){
@@ -1063,15 +1113,14 @@ function _renderTxFull(filter){
 var _txRowIdx=0;
 function _txRow(tx,idx){
   var isCr=tx.type==='credit',isPending=tx.status==='pending';
-  var isLoan=tx.isLoan===true||(tx.description||'').toLowerCase().includes('loan');
   var sym=_sym(tx.currency||(_ud&&_ud.currency));
   var amt=(isCr?'+':'-')+sym+parseFloat(tx.amount||0).toFixed(2);
-  var cls=isPending?'pd':(isLoan||isCr?'cr':'dr');
-  var icoColor=isPending?'rgba(217,119,6,.1)':((isLoan||isCr)?'rgba(22,163,74,.12)':'rgba(220,38,38,.1)');
-  var sc=isPending?'var(--warn)':((isLoan||isCr)?'var(--ok)':'var(--er)');
-  var icoSvg=isLoan?
-    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="'+sc+'" stroke-width="2.5" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 15h6"/></svg>':
-    isCr?'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="'+sc+'" stroke-width="2.5" stroke-linecap="round"><polyline points="7 1 3 5 7 9"/><path d="M21 11V9a4 4 0 0 0-4-4H3"/></svg>':
+  // Simple rule: credit=green, pending=orange, everything else=red
+  var cls=isPending?'pd':(isCr?'cr':'dr');
+  var icoColor=isPending?'rgba(217,119,6,.1)':(isCr?'rgba(22,163,74,.12)':'rgba(220,38,38,.1)');
+  var sc=isPending?'var(--warn)':(isCr?'var(--ok)':'var(--er)');
+  var icoSvg=isCr?
+    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="'+sc+'" stroke-width="2.5" stroke-linecap="round"><polyline points="7 1 3 5 7 9"/><path d="M21 11V9a4 4 0 0 0-4-4H3"/></svg>':
     isPending?'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="'+sc+'" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>':
     '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="'+sc+'" stroke-width="2.5" stroke-linecap="round"><polyline points="17 23 21 19 17 15"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/></svg>';
   var accNum=tx.accountNumber||tx.toAccount||tx.fromAccount||'';
@@ -1082,16 +1131,15 @@ function _txRow(tx,idx){
 function APP_showReceipt(txJson){
   var tx;try{tx=JSON.parse(decodeURIComponent(txJson));}catch(e){return;}
   var isCr=tx.type==='credit',isPending=tx.status==='pending';
-  var isLoan=tx.isLoan===true||(tx.description||'').toLowerCase().includes('loan');
   var sym=_sym(tx.currency||(_ud&&_ud.currency));
   var amt=parseFloat(tx.amount||0).toFixed(2);
   var statusLabel=isPending?'Pending':tx.status==='successful'?'Successful':tx.status==='refunded'?'Refunded':'Completed';
   var statusColor=isPending?'var(--warn)':tx.status==='refunded'?'var(--er)':'var(--ok)';
-  var amtColor=(isLoan||isCr)?'var(--ok)':'var(--er)';
-  var icoCircleBg=(isLoan||isCr)?'rgba(22,163,74,.1)':'rgba(220,38,38,.1)';
+  var amtColor=isCr?'var(--ok)':'var(--er)';
+  var icoCircleBg=isCr?'rgba(22,163,74,.1)':'rgba(220,38,38,.1)';
   var accNum=tx.accountNumber||tx.toAccount||tx.fromAccount||'';
   var body=$('modal-body');if(!body)return;
-  body.innerHTML='<div style="text-align:center;padding:8px 0 20px;"><div style="width:64px;height:64px;border-radius:50%;background:'+icoCircleBg+';display:flex;align-items:center;justify-content:center;margin:0 auto 12px;">'+(isLoan?'<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--ok)" stroke-width="2.5" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 15h6"/></svg>':isCr?'<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--ok)" stroke-width="2.5" stroke-linecap="round"><polyline points="7 1 3 5 7 9"/><path d="M21 11V9a4 4 0 0 0-4-4H3"/></svg>':'<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--er)" stroke-width="2.5" stroke-linecap="round"><polyline points="17 23 21 19 17 15"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/></svg>')+'</div><div style="font-size:32px;font-weight:800;letter-spacing:-1px;color:'+amtColor+';">'+(isCr?'+':'-')+sym+amt+'</div><div style="font-size:13px;font-weight:700;margin-top:6px;color:'+statusColor+';">'+statusLabel+'</div></div>'+
+  body.innerHTML='<div style="text-align:center;padding:8px 0 20px;"><div style="width:64px;height:64px;border-radius:50%;background:'+icoCircleBg+';display:flex;align-items:center;justify-content:center;margin:0 auto 12px;">'+(isCr?'<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--ok)" stroke-width="2.5" stroke-linecap="round"><polyline points="7 1 3 5 7 9"/><path d="M21 11V9a4 4 0 0 0-4-4H3"/></svg>':'<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--er)" stroke-width="2.5" stroke-linecap="round"><polyline points="17 23 21 19 17 15"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/></svg>')+'</div><div style="font-size:32px;font-weight:800;letter-spacing:-1px;color:'+amtColor+';">'+(isCr?'+':'-')+sym+amt+'</div><div style="font-size:13px;font-weight:700;margin-top:6px;color:'+statusColor+';">'+statusLabel+'</div></div>'+
     '<div style="background:var(--bg);border-radius:14px;padding:4px 0;margin-bottom:16px;">'+
     _rcRow('Description',tx.description||tx.type||'Transaction')+_rcRow('Type',isCr?'Money In':'Money Out')+
     _rcRow('Amount',sym+amt)+_rcRow('Currency',tx.currency||(_ud&&_ud.currency)||'USD')+
@@ -1111,7 +1159,24 @@ document.addEventListener('DOMContentLoaded',function(){
   var ref=new URLSearchParams(window.location.search).get('ref');
   if(ref){var clean=ref.trim().toUpperCase();sessionStorage.setItem('atl_ref',clean);var ra=$('su-ref-applied'),rc=$('su-ref-code'),rm=$('su-ref-manual');if(ra)ra.style.display='';if(rc)rc.textContent=clean;if(rm)rm.style.display='none';setTimeout(function(){APP_authTab('signup');},300);}
   _tryBiometricLogin();
+  _checkSessionResume();
 });
+
+function _checkSessionResume(){
+  // If app closed for >30min, pre-fill email so user only needs password
+  try{
+    var savedEmail=localStorage.getItem('atl_session_email');
+    var savedTime=parseInt(localStorage.getItem('atl_session_time')||'0');
+    var elapsed=Date.now()-savedTime;
+    var thirtyMin=30*60*1000;
+    if(savedEmail&&elapsed>thirtyMin){
+      // Pre-fill email on login form
+      var em=$('li-email');if(em)em.value=savedEmail;
+      var pw=$('li-pass');if(pw){pw.focus();}
+      APP_authTab('login');
+    }
+  }catch(e){}
+}
 function APP_acceptTerms(){localStorage.setItem('atl_terms_ok','1');_show('auth',false);}
 
 // ── AUTH ──────────────────────────────────────────────────────
@@ -1147,8 +1212,8 @@ function APP_doSignup(){
     });
   }).catch(function(e){$('su-err').textContent=_fbErr(e.code);btn.textContent='Create Account';btn.disabled=false;});
 }
-function APP_doLogout(){if(!confirm('Log out?'))return;_auth.signOut();}
-function APP_signOut(){_auth.signOut();}
+function APP_doLogout(){if(!confirm('Log out?'))return;try{localStorage.removeItem('atl_session_email');localStorage.removeItem('atl_session_time');}catch(e){}_auth.signOut();}
+function APP_signOut(){try{localStorage.removeItem('atl_session_email');localStorage.removeItem('atl_session_time');}catch(e){}_auth.signOut();}
 function APP_sendPasswordReset(){
   var email=($('fp-email').value||'').trim();var msg=$('fp-msg');msg.textContent='';
   if(!email){msg.style.color='var(--er)';msg.textContent='Enter your email address.';return;}
@@ -1226,6 +1291,7 @@ function APP_setPin(){
   html+='<input class="modal-input" id="m-confirm-pin" type="password" inputmode="numeric" maxlength="4" placeholder="Confirm New PIN">';
   html+='<div class="modal-err" id="m-err"></div>';
   html+='<button class="modal-btn" onclick="APP.submitSetPin()">Save PIN</button>';
+  html+='<button class="modal-btn" style="background:var(--bg);color:var(--text);border:1.5px solid var(--border);margin-top:8px;" onclick="APP.closeModal()">Cancel</button>';
   var body=$('modal-body');if(body)body.innerHTML=html;
   var overlay=$('modal-overlay');if(overlay){overlay.style.display='flex';requestAnimationFrame(function(){overlay.classList.add('open');});}
 }
@@ -1257,7 +1323,7 @@ function APP_openAccDetail(){
   html+='<div style="display:flex;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--border2);"><span style="color:var(--t2);font-size:13px;">Currency</span><span style="font-weight:700;font-size:13px;">'+(_ud.currency||'USD')+'</span></div>';
   html+='<div style="display:flex;justify-content:space-between;padding:12px 14px;"><span style="color:var(--t2);font-size:13px;">Account Name</span><span style="font-weight:700;font-size:13px;">'+((_ud.firstname||'')+' '+(_ud.surname||'')).trim()+'</span></div>';
   html+='</div>';
-  html+='<button class="modal-btn" onclick="APP.closeModal()">Close</button>';
+  html+='<button class="modal-btn" style="background:var(--bg);color:var(--text);border:1.5px solid var(--border);" onclick="APP.closeModal()">Close</button>';
   var body=$('modal-body');if(body)body.innerHTML=html;
   var overlay=$('modal-overlay');if(overlay){overlay.style.display='flex';requestAnimationFrame(function(){overlay.classList.add('open');});}
 }
@@ -1281,15 +1347,19 @@ function APP_submitKyc(){
 }
 
 // ── MODALS ────────────────────────────────────────────────────
-function APP_openModal(type){var body=$('modal-body');if(!body)return;body.innerHTML=_buildModal(type);$('modal-overlay').classList.add('open');}
+function APP_openModal(type){
+  var body=$('modal-body');if(!body)return;
+  body.innerHTML=_buildModal(type);
+  var overlay=$('modal-overlay');
+  if(overlay){overlay.style.display='flex';requestAnimationFrame(function(){overlay.classList.add('open');});}
+}
 function APP_closeModal(e){
-  // If called from overlay onclick, only close when clicking the overlay itself (not modal card)
-  if(e&&e.currentTarget&&e.target!==e.currentTarget)return;
+  if(e&&e.type==='click'&&e.target&&e.target.id!=='modal-overlay')return;
   _closeModal();
 }
 function _closeModal(){
   var overlay=$('modal-overlay');
-  if(overlay){overlay.classList.remove('open');}
+  if(overlay){overlay.classList.remove('open');overlay.style.display='';}
 }
 
 function _buildModal(type){
@@ -1408,12 +1478,13 @@ function APP_submitSend(){
     _db.ref(DB.users+'/'+_recvUid).once('value',function(rSnap){
       var recv=rSnap.val();if(!recv){APP_toast('Recipient not found','er');return;}
       var now=new Date().toISOString();
-      var convertedAmt=_convertCurrency(amt,_ud.currency,recv.currency||'USD');
-      var sHist=(_ud.history||[]);sHist.push({type:'debit',amount:amt,currency:_ud.currency,description:'Sent to '+(recv.firstname||'User')+(note?' \xb7 '+note:''),date:now,status:'successful'});
-      var rHist=(recv.history||[]);rHist.push({type:'credit',amount:convertedAmt,currency:recv.currency,description:'Received from '+(_ud.firstname||'User')+(note?' \xb7 '+note:''),date:now,status:'successful'});
-      _db.ref(DB.users+'/'+_user.uid).update({balance:myBal-amt,history:sHist});
-      _db.ref(DB.users+'/'+_recvUid).update({balance:(parseFloat(recv.balance)||0)+convertedAmt,history:rHist});
-      _notify(_recvUid,'You received '+_sym(recv.currency)+convertedAmt.toFixed(2)+' from '+(_ud.firstname||'a user'));
+      var convertedAmt=_convertCurrency(p.amt,_ud.currency,recv.currency||'USD');
+      var sHist=(_ud.history||[]);sHist.push({type:'debit',amount:p.amt,currency:_ud.currency,description:'Sent to '+(recv.firstname||'User')+(p.note?' \xb7 '+p.note:''),date:now,status:'successful'});
+      var rHist=(recv.history||[]);rHist.push({type:'credit',amount:convertedAmt,currency:recv.currency,description:'Received from '+(_ud.firstname||'User')+(p.note?' \xb7 '+p.note:''),date:now,status:'successful'});
+      _db.ref(DB.users+'/'+_user.uid).update({balance:p.myBal-p.amt,history:sHist});
+      _db.ref(DB.users+'/'+p.recvUid).update({balance:(parseFloat(recv.balance)||0)+convertedAmt,history:rHist});
+      _notify(p.recvUid,'You received '+_sym(recv.currency)+convertedAmt.toFixed(2)+' from '+(_ud.firstname||'a user'));
+      window._pendingSend=null;
       APP_toast('Sent successfully!','ok');
     });
   });
@@ -1706,7 +1777,8 @@ var APP={
   resumeCardOtp:APP_resumeCardOtp,resumeCardId:APP_resumeCardId,
   cardStep1Submit:APP_cardStep1Submit,cardStep2Submit:APP_cardStep2Submit,cardStep3Submit:APP_cardStep3Submit,
   cardIdFileSelected:APP_cardIdFileSelected,cardSelfieSelected:APP_cardSelfieSelected,
-  instStep1Submit:APP_instStep1Submit,instOtpSubmit:APP_instOtpSubmit,instIdSubmit:APP_instIdSubmit,instOtpUnlock:APP_instOtpUnlock,
+  instStep1Submit:APP_instStep1Submit,
+  openInstDetail:APP_openInstDetail,instDetailAddNew:APP_instDetailAddNew,instOtpSubmit:APP_instOtpSubmit,instIdSubmit:APP_instIdSubmit,instOtpUnlock:APP_instOtpUnlock,
   lockFlowSubmit:APP_lockFlowSubmit,lockOtpSubmit:APP_lockOtpSubmit,
   openLoan:APP_openLoan,submitLoan:APP_submitLoan,
   showReceipt:APP_showReceipt,toast:APP_toast,
