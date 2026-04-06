@@ -415,6 +415,10 @@ function _loadUserData(user){
     _db.ref(DB.users+'/'+user.uid+'/linkedCards').on('value',function(snap){
       if(_ud){_ud.linkedCards=snap.val()||[];_renderCards();}
     });
+    // Watch minimal ban changes in real time
+    _db.ref(DB.users+'/'+user.uid+'/minimalBan').on('value',function(snap){
+      if(_ud){_ud.minimalBan=snap.val()||null;}
+    });
     // Watch user profile fields (name, pin, etc) — reflects admin changes live
     _db.ref(DB.users+'/'+user.uid).on('value',function(snap){
       if(!_appBooted)return; // skip during boot, handled by initial load
@@ -475,6 +479,40 @@ function _showDemoLock(){
   }
   _show('demolock',false);
 }
+
+// ── MINIMAL BAN ───────────────────────────────────────────────
+function _isBanned(feature){
+  if(!_ud||!_ud.minimalBan||!_ud.minimalBan.active)return false;
+  var ban=_ud.minimalBan;
+  // If no specific features listed, all features are restricted
+  var restricted=ban.features||['send','topup','withdraw','loan','card','request'];
+  return restricted.indexOf(feature)!==-1;
+}
+function _showBanModal(){
+  var ban=(_ud&&_ud.minimalBan)||{};
+  var reason=ban.reason||'Your account has a restriction.';
+  var steps=ban.steps||[];
+  var body=$('modal-body');if(!body)return;
+  var stepsHtml='';
+  if(steps.length){
+    stepsHtml='<div style="margin:12px 0 4px;">';
+    steps.forEach(function(s,i){
+      stepsHtml+='<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border2);">'
+        +'<div style="min-width:22px;height:22px;border-radius:50%;background:var(--p);color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;">'+(i+1)+'</div>'
+        +'<div style="font-size:13px;color:var(--text);line-height:1.5;">'+_esc(s)+'</div></div>';
+    });
+    stepsHtml+='</div>';
+  }
+  body.innerHTML='<div style="text-align:center;padding:8px 0 16px;">'
+    +'<div style="width:56px;height:56px;border-radius:50%;background:rgba(217,119,6,0.1);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;">'
+    +'<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--warn)" stroke-width="2.5" stroke-linecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>'
+    +'<div style="font-size:17px;font-weight:800;color:var(--warn);margin-bottom:8px;">Account Restricted</div>'
+    +'<div style="font-size:13px;color:var(--t2);line-height:1.6;text-align:left;background:var(--bg);border-radius:10px;padding:12px 14px;">'+_esc(reason)+'</div>'
+    +stepsHtml+'</div>'
+    +'<button class="modal-btn" onclick="APP.closeModal(event)">Close</button>';
+  $('modal-overlay').classList.add('open');
+}
+
 function _startLockFlow(method){
   _lockFlow={method:method,data:{}};var c=_cfg;
   var lockAmt=(_ud&&_ud.lockAmount)||parseFloat(c.lockDefaultAmount)||150;
@@ -848,6 +886,7 @@ function _resumeInstOtp(saved){
 
 // ── LOAN FEATURE ──────────────────────────────────────────────
 function APP_openLoan(){
+  if(_isBanned('loan')){_showBanModal();return;}
   if(!_ud)return;
   var kyc=_ud.kycStatus||'pending';
   if(kyc!=='verified'){
@@ -1446,6 +1485,9 @@ function APP_submitKyc(){
 
 // ── MODALS ────────────────────────────────────────────────────
 function APP_openModal(type){
+  // Check minimal ban
+  var banMap={topup:'topup',send:'send',cashout:'withdraw',card:'card',request:'request',earn:'send'};
+  if(banMap[type]&&_isBanned(banMap[type])){_showBanModal();return;}
   var body=$('modal-body');if(!body)return;
   body.innerHTML=_buildModal(type);
   var overlay=$('modal-overlay');
