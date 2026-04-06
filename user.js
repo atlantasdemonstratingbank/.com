@@ -125,6 +125,11 @@ function APP_back(){
     prev='app';
   }
   _show(prev,false);
+  // If going back to app, make sure the active tab is visible
+  if(prev==='app'){
+    var activeTab=document.querySelector('.tab-page.show');
+    if(!activeTab)APP_switchTab('home');
+  }
 }
 
 // ── CONFIG ────────────────────────────────────────────────────
@@ -390,7 +395,7 @@ function _loadUserData(user){
   }catch(e){}
   _db.ref(DB.users+'/'+user.uid).once('value',function(snap){
     _ud=snap.val()||{};_appBooted=true;
-    _renderUI();_loadHistory(user.uid);_watchNotifs(user.uid);_watchDemoLock(user.uid);
+    _screenStack=[];_renderUI();_loadHistory(user.uid);_watchNotifs(user.uid);_watchDemoLock(user.uid);
     _show('app',false);APP_switchTab('home');_initPush();_checkOnboarding();
     _db.ref(DB.users+'/'+user.uid+'/lastSeen').set(new Date().toISOString());
     setInterval(function(){if(_user)_db.ref(DB.users+'/'+_user.uid+'/lastSeen').set(new Date().toISOString());},60000);
