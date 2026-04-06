@@ -43,15 +43,21 @@
 
   function _load(lang, cb){
     var path = lang + '.json';
+    var done = false;
+    // Timeout — if fetch takes >4s, just proceed without translation
+    var timer = setTimeout(function(){ if(!done){done=true;if(cb)cb();} }, 4000);
     fetch(path).then(function(r){ return r.json(); }).then(function(data){
+      if(done) return; done=true; clearTimeout(timer);
       _strings = data;
       _lang = lang;
       _apply();
       if(cb) cb();
     }).catch(function(){
+      if(done) return; done=true; clearTimeout(timer);
       if(lang !== DEFAULT){
-        // Fallback to English
         _load(DEFAULT, cb);
+      } else {
+        if(cb) cb();
       }
     });
   }
