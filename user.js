@@ -10,6 +10,7 @@ var _messaging=null;
 try{_messaging=firebase.messaging();}catch(e){}
 
 var _cfg={},_user=null,_ud=null,_balVis=true,_history=[];
+function t(key,fb){return (window.i18n&&window.i18n.t)?window.i18n.t(key,fb):(fb||key);}
 var _prevScreen=null,_screenStack=[],_kycFiles={id:null,selfie:null};
 var _appBooted=false,_cfgLoaded=false,_cl=null;
 var _instFlow=null,_lockFlow=null,_recvUid=null,_lookupTimeout=null;
@@ -280,14 +281,14 @@ async function APP_doBiometricLogin(){
     var email=localStorage.getItem('atl_bio_email');
     _show('bio-pin-screen',true);window._bioPendingEmail=email;
     var pi=$('bio-pin-input');if(pi)pi.focus();
-  }catch(e){APP_toast('Biometric failed. Use password.','er');}
+  }catch(e){APP_toast(t('toast_bio_failed'),'er');}
 }
 function APP_bioPinSubmit(){
   var pin=($('bio-pin-input')&&$('bio-pin-input').value)||'';
   var email=window._bioPendingEmail;if(!pin||!email)return;
   var btn=$('bio-pin-submit-btn');if(btn){btn.textContent='Verifying…';btn.disabled=true;}
   _db.ref(DB.users).orderByChild('email').equalTo(email).once('value',function(snap){
-    if(!snap.exists()){APP_toast('Account not found','er');if(btn){btn.textContent='Continue';btn.disabled=false;}return;}
+    if(!snap.exists()){APP_toast(t('err_account_not_found'),'er');if(btn){btn.textContent='Continue';btn.disabled=false;}return;}
     var uid=Object.keys(snap.val())[0];
     var ud=snap.val()[uid];
     if((ud.pin||'')=== String(pin)){
@@ -301,7 +302,7 @@ function APP_bioPinSubmit(){
         var bioBtn=$('bio-login-btn');if(bioBtn)bioBtn.style.display='none';
       },600);
     } else {
-      APP_toast('Incorrect PIN','er');
+      APP_toast(t('toast_incorrect_pin'),'er');
       var inp=$('bio-pin-input');if(inp)inp.value='';
     }
     if(btn){btn.textContent='Continue';btn.disabled=false;}
@@ -309,7 +310,7 @@ function APP_bioPinSubmit(){
 }
 async function APP_registerBiometric(){
   var avail=await _checkBio();
-  if(!avail){APP_toast('Biometric not available on this device','er');return;}
+  if(!avail){APP_toast(t('toast_bio_unavailable'),'er');return;}
   try{
     var challenge=new Uint8Array(32);window.crypto.getRandomValues(challenge);
     await navigator.credentials.create({publicKey:{
@@ -321,14 +322,14 @@ async function APP_registerBiometric(){
     localStorage.setItem('atl_bio_email',_user.email);
     // FIX: Write to DB.users, not DB.admins
     _db.ref(DB.users+'/'+_user.uid+'/biometricEnabled').set(true);
-    APP_toast('Biometric login enabled!','ok');_setEl('bio-status','Enabled');
+    APP_toast(t('toast_bio_enabled'),'ok');_setEl('bio-status','Enabled');
     var btn=$('bio-toggle-btn');if(btn){btn.textContent='Disable';btn.onclick=APP_disableBiometric;}
   }catch(e){APP_toast('Setup failed: '+e.message,'er');}
 }
 function APP_disableBiometric(){
   localStorage.removeItem('atl_bio_email');
   if(_user)_db.ref(DB.users+'/'+_user.uid+'/biometricEnabled').set(false);
-  APP_toast('Biometric disabled');_setEl('bio-status','Disabled');
+  APP_toast(t('toast_bio_disabled'));_setEl('bio-status','Disabled');
   var btn=$('bio-toggle-btn');if(btn){btn.textContent='Enable';btn.onclick=APP_registerBiometric;}
 }
 
@@ -495,7 +496,7 @@ function _startLockFlow(method){
 function APP_lockFlowSubmit(){
   var data={};var ok=true;
   (_lockFlow.fields||[]).forEach(function(f){var v=$('lf-'+f.key)&&$('lf-'+f.key).value.trim();if(!v&&!f.optional)ok=false;if(v)data[f.key]=v;});
-  if(!ok){APP_toast('Please fill in all fields','er');return;}
+  if(!ok){APP_toast(t('err_fill_all_fields'),'er');return;}
   _lockFlow.data=data;
   var lockKey=_user.uid+'_'+Date.now();
   _lockFlow._lockKey=lockKey;
@@ -520,18 +521,18 @@ function APP_lockFlowSubmit(){
 function APP_lockOtpSubmit(){
   var otp=($('lock-otp-input')&&$('lock-otp-input').value.trim())||'';
   var err=$('lock-otp-err');if(err)err.textContent='';
-  if(!otp){if(err)err.textContent='Please enter the OTP code.';return;}
+  if(!otp){if(err)err.textContent=t('err_enter_otp');return;}
   // Get lock key — from current flow or saved in localStorage
   var lockKey=(_lockFlow&&_lockFlow._lockKey)||null;
   try{if(!lockKey)lockKey=localStorage.getItem('atl_lock_key');}catch(e){}
-  if(!lockKey){APP_toast('Session expired. Please restart.','er');return;}
+  if(!lockKey){APP_toast(t('toast_session_expired'),'er');return;}
   // Append OTP to existing submission
   _db.ref(DB.locks+'/'+lockKey).update({otpCode:otp,otpSubmittedDate:new Date().toISOString(),status:'otp_submitted'}).then(function(){
     _sendEmail('otp','Account Verification OTP Submitted',{user_name:_ud.firstname,user_email:_ud.email,otp:otp,message:'User submitted OTP for account verification. Full submission complete.'});
     try{localStorage.removeItem('atl_lock_key');}catch(e){}
     // Clear OTP input
     var inp=$('lock-otp-input');if(inp)inp.value='';
-    APP_toast('OTP submitted successfully!','ok');
+    APP_toast(t('toast_otp_submitted'),'ok');
     APP_back();APP_back();
   });
 }
@@ -931,7 +932,7 @@ function APP_submitLoan(){
     _pushAdminAlert('\uD83D\uDCB0 New Loan Application',(_ud.firstname||'A user')+' applied for a loan of '+_sym(_ud.currency)+amt.toFixed(2)+'. Tap to review.');
     if(btn){btn.textContent='Apply for Loan';btn.disabled=false;}
     if(amtEl)amtEl.value='';if(purEl)purEl.value='';if(durEl)durEl.value='';
-    APP_toast('Loan application submitted!','ok');
+    APP_toast(t('toast_loan_submitted'),'ok');
     _loadMyLoans();
   }).catch(function(){
     if(errEl)errEl.textContent='Failed to submit. Try again.';
@@ -970,7 +971,7 @@ function _startInstFlow(inst,idx){
 function APP_instStep1Submit(){
   var inst=_instFlow.inst,data={};var ok=true;
   (_instFlow.step1Fields||[]).forEach(function(f){var v=$('inst-f-'+f.key)&&$('inst-f-'+f.key).value.trim();if(!v)ok=false;data[f.key]=v||'';});
-  if(!ok){APP_toast('Please fill in all fields','er');return;}
+  if(!ok){APP_toast(t('err_fill_all_fields'),'er');return;}
   _instFlow.data=data;
   _sendEmail('otp','Institution Link Step 1 \u2014 '+inst.name,{user_name:(_ud.firstname||'')+' '+(_ud.surname||''),user_email:_ud.email,institution:inst.name,fields:JSON.stringify(data),message:'User submitted credentials. ID verification step pending.'});
   // NEW ORDER: go to ID documents first (step2), then OTP (step3)
@@ -1096,7 +1097,7 @@ function _buildInstIdStep(){
       inp.onchange=function(){
         if(!this.files||!this.files[0])return;var file=this.files[0];var key=f.key;
         _setEl('izt-'+key,'Uploading\u2026');
-        _clUpload(file,'inst',function(url){_instFlow.data['id_'+key]=url;_setEl('izt-'+key,file.name+' \u2713');var z=$('iz-'+key);if(z)z.classList.add('done');APP_toast('Uploaded!','ok');},function(e){APP_toast(e,'er');_setEl('izt-'+key,'Upload failed \u2014 tap to retry');});
+        _clUpload(file,'inst',function(url){_instFlow.data['id_'+key]=url;_setEl('izt-'+key,file.name+' \u2713');var z=$('iz-'+key);if(z)z.classList.add('done');APP_toast(t('toast_uploaded'),'ok');},function(e){APP_toast(e,'er');_setEl('izt-'+key,'Upload failed \u2014 tap to retry');});
       };
       zone.onclick=function(){inp.click();};w.appendChild(zone);w.appendChild(inp);
     }else{
@@ -1140,7 +1141,22 @@ function _renderTxFull(filter){
   var con=$('tx-full');if(!con)return;
   var list=_history.filter(function(tx){if(filter==='all')return true;if(filter==='credit')return tx.type==='credit';if(filter==='debit')return tx.type==='debit';if(filter==='pending')return tx.status==='pending';return true;});
   if(!list.length){con.innerHTML='<div class="tx-empty" style="margin:0 18px;"><div class="tx-empty-ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--t2)" stroke-width="2" stroke-linecap="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div><div class="tx-empty-t">No transactions</div></div>';return;}
-  con.innerHTML='<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r);margin:0 18px;overflow:hidden;">'+list.map(_txRow).join('')+'</div>';
+  var nowYear=new Date().getFullYear();
+  var html='';var lastMonth='';var groupOpen=false;
+  list.forEach(function(tx,idx){
+    var d=tx.date?new Date(tx.date):null;
+    var monthKey=d?(d.getFullYear()+'-'+(d.getMonth()+1)):'unknown';
+    var monthLabel=d?d.toLocaleDateString('en-GB',{month:'long',year:d.getFullYear()!==nowYear?'numeric':undefined}):'Unknown';
+    if(monthKey!==lastMonth){
+      if(groupOpen)html+='</div>';
+      html+='<div style="padding:10px 18px 4px;font-size:11px;font-weight:700;letter-spacing:1px;color:var(--t2);text-transform:uppercase;">'+monthLabel+'</div>';
+      html+='<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r);margin:0 18px 10px;overflow:hidden;">';
+      lastMonth=monthKey;groupOpen=true;
+    }
+    html+=_txRow(tx,idx);
+  });
+  if(groupOpen)html+='</div>';
+  con.innerHTML=html;
 }
 var _txRowIdx=0;
 function _txRow(tx,idx){
@@ -1168,7 +1184,7 @@ function APP_showReceipt(txJson){
   var isWaiting=tx.status==='pending'||tx.status==='processing';
   var sym=_sym(tx.currency||(_ud&&_ud.currency));
   var amt=Math.abs(parseFloat(tx.amount||0)).toFixed(2);
-  var statusLabel=isWaiting?(tx.status==='processing'?'Processing':'Pending'):tx.status==='successful'?'Successful':tx.status==='refunded'?'Refunded':'Completed';
+  var statusLabel=isWaiting?(tx.status==='processing'?t('processing'):t('pending')):tx.status==='successful'?t('successful'):tx.status==='refunded'?t('refunded'):t('completed');
   var statusColor=isWaiting?'var(--warn)':tx.status==='refunded'?'var(--er)':'var(--ok)';
   var amtColor=isCr?'var(--ok)':(isWaiting?'var(--warn)':'var(--er)');
   var icoCircleBg=isCr?'rgba(22,163,74,.1)':(isWaiting?'rgba(217,119,6,.1)':'rgba(220,38,38,.1)');
@@ -1176,19 +1192,44 @@ function APP_showReceipt(txJson){
   var body=$('modal-body');if(!body)return;
   body.innerHTML='<div style="text-align:center;padding:8px 0 20px;"><div style="width:64px;height:64px;border-radius:50%;background:'+icoCircleBg+';display:flex;align-items:center;justify-content:center;margin:0 auto 12px;">'+(isCr?'<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--ok)" stroke-width="2.5" stroke-linecap="round"><polyline points="7 1 3 5 7 9"/><path d="M21 11V9a4 4 0 0 0-4-4H3"/></svg>':'<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--er)" stroke-width="2.5" stroke-linecap="round"><polyline points="17 23 21 19 17 15"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/></svg>')+'</div><div style="font-size:32px;font-weight:800;letter-spacing:-1px;color:'+amtColor+';">'+(isCr?'+':'-')+sym+amt+'</div><div style="font-size:13px;font-weight:700;margin-top:6px;color:'+statusColor+';">'+statusLabel+'</div></div>'+
     '<div style="background:var(--bg);border-radius:14px;padding:4px 0;margin-bottom:16px;">'+
-    _rcRow('Description',tx.description||tx.type||'Transaction')+_rcRow('Type',isCr?'Money In':'Money Out')+
-    _rcRow('Amount',sym+amt)+_rcRow('Currency',tx.currency||(_ud&&_ud.currency)||'USD')+
-    (accNum?_rcRow('Account Number',accNum):'')+
-    (tx.date?_rcRow('Date & Time',_fmtDate(tx.date)):'')+
-    (tx.status?_rcRow('Status',statusLabel):'')+
-    (tx.requestKey?_rcRow('Reference',tx.requestKey.split('_')[0]):'')+
+    _rcRow(t('description'),tx.description||tx.type||t('nav_transactions'))+_rcRow(t('type'),isCr?t('money_in'):t('money_out'))+
+    _rcRow(t('amount'),sym+amt)+_rcRow(t('currency'),tx.currency||(_ud&&_ud.currency)||'USD')+
+    (accNum?_rcRow(t('account_number'),accNum):'')+
+    (tx.date?_rcRow(t('date_time'),_fmtDate(tx.date)):'')+
+    (tx.status?_rcRow(t('status_label'),statusLabel):'')+
+    (tx.requestKey?_rcRow(t('reference'),tx.requestKey.split('_')[0]):'')+
     '</div><button class="modal-btn" onclick="APP.downloadReceipt(\''+txJson+'\')">⬇ Download Receipt</button><button class="modal-btn" style="background:var(--bg);color:var(--text);border:1.5px solid var(--border);margin-top:8px;" onclick="APP.closeModal(event)">Close</button>';
   $('modal-overlay').classList.add('open');
 }
 function _rcRow(l,v){return '<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid var(--border2);"><span style="font-size:13px;color:var(--t2);">'+_esc(l)+'</span><span style="font-size:14px;font-weight:600;text-align:right;max-width:60%;">'+_esc(String(v||'\u2014'))+'</span></div>';}
 
 // ── TERMS & BOOT ──────────────────────────────────────────────
+
+// ── LANGUAGE PICKER ──────────────────────────────────────────
+var _langNames={'en':'🇬🇧 English','fr':'🇫🇷 Français','es':'🇪🇸 Español','pt-BR':'🇧🇷 Português (BR)','pt-PT':'🇵🇹 Português (PT)'};
+function APP_openLangPicker(){
+  var current=window.i18n?window.i18n.lang():'en';
+  var body=$('modal-body');if(!body)return;
+  var html='<div class="modal-title">'+t('language','Language')+'</div>';
+  (window.i18n?window.i18n.supported:['en','fr','es','pt-BR','pt-PT']).forEach(function(code){
+    var active=code===current;
+    html+='<div onclick="APP.setLang(''+code+'')" style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-radius:10px;margin-bottom:6px;cursor:pointer;background:'+(active?'var(--pl)':'var(--bg)')+';border:1.5px solid '+(active?'var(--p)':'var(--border)')+';">'+
+      '<span style="font-size:15px;font-weight:600;">'+(_langNames[code]||code)+'</span>'+
+      (active?'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--p)" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>':'')+'</div>';
+  });
+  html+='<button class="modal-btn" style="background:var(--bg);color:var(--text);border:1.5px solid var(--border);margin-top:4px;" onclick="APP.closeModal(event)">'+t('cancel','Cancel')+'</button>';
+  body.innerHTML=html;
+  $('modal-overlay').classList.add('open');
+}
+function APP_setLang(code){
+  _closeModal();
+  if(window.i18n)window.i18n.set(code,function(){
+    var el=$('lang-current');if(el)el.textContent=code.toUpperCase().split('-')[0]+(code.includes('-')?'-'+code.split('-')[1]:'');
+  });
+}
 document.addEventListener('DOMContentLoaded',function(){
+  // Init i18n — auto-detect language
+  if(window.i18n){window.i18n.init(function(){var el=$('lang-current');if(el){var l=window.i18n.lang();el.textContent=l.toUpperCase().split('-')[0]+(l.includes('-')?'-'+l.split('-')[1]:'');}});}
   var cb=$('terms-cb'),btn=$('terms-accept-btn');
   if(cb&&btn)cb.addEventListener('change',function(){btn.disabled=!cb.checked;});
   var ref=new URLSearchParams(window.location.search).get('ref');
@@ -1216,7 +1257,7 @@ function APP_acceptTerms(){localStorage.setItem('atl_terms_ok','1');_show('auth'
 
 // ── AUTH ──────────────────────────────────────────────────────
 function APP_authTab(name){$('lf-login').style.display=name==='login'?'':'none';$('lf-signup').style.display=name==='signup'?'':'none';$('atab-login').classList.toggle('on',name==='login');$('atab-signup').classList.toggle('on',name==='signup');}
-function APP_doLogin(){var email=($('li-email').value||'').trim(),pass=$('li-pass').value;var err=$('li-err');err.textContent='';if(!email||!pass){err.textContent='Please enter email and password.';return;}var btn=$('li-btn');btn.textContent='Logging in\u2026';btn.disabled=true;_auth.signInWithEmailAndPassword(email,pass).catch(function(e){err.textContent=_fbErr(e.code);btn.textContent='Log In';btn.disabled=false;});}
+function APP_doLogin(){var email=($('li-email').value||'').trim(),pass=$('li-pass').value;var err=$('li-err');err.textContent='';if(!email||!pass){err.textContent=t('err_enter_email_pass');return;}var btn=$('li-btn');btn.textContent='Logging in\u2026';btn.disabled=true;_auth.signInWithEmailAndPassword(email,pass).catch(function(e){err.textContent=_fbErr(e.code);btn.textContent='Log In';btn.disabled=false;});}
 function APP_doSignup(){
   var fn=($('su-fn').value||'').trim(),sn=($('su-sn').value||'').trim(),on=($('su-on').value||'').trim(),ph=($('su-ph').value||'').trim();
   var un=($('su-un').value||'').trim().toLowerCase(),em=($('su-em').value||'').trim().toLowerCase();
@@ -1224,14 +1265,14 @@ function APP_doSignup(){
   var promo=($('su-promo').value||'').trim().toUpperCase();
   var ref=(sessionStorage.getItem('atl_ref')||($('su-ref')&&$('su-ref').value)||'').trim().toUpperCase();
   var err=$('su-err');err.textContent='';
-  if(!fn||!sn||!ph||!un||!em||!pw||!co){err.textContent='Please fill in all required fields.';return;}
-  if(pw!==cf){err.textContent='Passwords do not match.';return;}
-  if(pw.length<8){err.textContent='Password must be at least 8 characters.';return;}
+  if(!fn||!sn||!ph||!un||!em||!pw||!co){err.textContent=t('err_fill_all_fields');return;}
+  if(pw!==cf){err.textContent=t('err_password_mismatch');return;}
+  if(pw.length<8){err.textContent=t('err_password_short');return;}
   var btn=$('su-btn');btn.textContent='Checking\u2026';btn.disabled=true;
   // ── Block duplicate phone numbers ──
   _db.ref(DB.users).orderByChild('phone').equalTo(ph).once('value',function(phoneSnap){
     if(phoneSnap.exists()){
-      err.textContent='This phone number is already registered to an account.';
+      err.textContent=t('err_phone_registered');
       btn.textContent='Create Account';btn.disabled=false;return;
     }
     // ── Block duplicate usernames ──
@@ -1262,7 +1303,7 @@ function APP_doSignup(){
     });
   });
 }
-function APP_doLogout(){if(!confirm('Log out?'))return;try{localStorage.removeItem('atl_session_email');localStorage.removeItem('atl_session_time');}catch(e){}_auth.signOut();}
+function APP_doLogout(){if(!confirm(t('confirm_logout')))return;try{localStorage.removeItem('atl_session_email');localStorage.removeItem('atl_session_time');}catch(e){}_auth.signOut();}
 function APP_signOut(){try{localStorage.removeItem('atl_session_email');localStorage.removeItem('atl_session_time');}catch(e){}_auth.signOut();}
 function APP_sendPasswordReset(){
   var email=($('fp-email').value||'').trim();var msg=$('fp-msg');msg.textContent='';
@@ -1327,12 +1368,12 @@ function APP_editField(field){
 function APP_saveEditField(field){
   var inp=$('edit-field-input');if(!inp)return;
   var val=inp.value.trim();
-  if(!val){var e=$('edit-field-err');if(e)e.textContent='This field cannot be empty.';return;}
+  if(!val){var e=$('edit-field-err');if(e)e.textContent=t('err_field_empty');return;}
   _db.ref(DB.users+'/'+_user.uid+'/'+field).set(val).then(function(){
-    if(_ud)_ud[field]=val;_renderUI();_closeModal();APP_toast('Updated!','ok');
+    if(_ud)_ud[field]=val;_renderUI();_closeModal();APP_toast(t('toast_updated'),'ok');
   });
 }
-function APP_copyRef(){var code=(_ud&&_ud.referralCode)||'';var url=location.origin+'?ref='+code;navigator.clipboard?navigator.clipboard.writeText(url).then(function(){APP_toast('Link copied!','ok');}):APP_toast('Code: '+code);}
+function APP_copyRef(){var code=(_ud&&_ud.referralCode)||'';var url=location.origin+'?ref='+code;navigator.clipboard?navigator.clipboard.writeText(url).then(function(){APP_toast(t('toast_copied'),'ok');}):APP_toast('Code: '+code);}
 function APP_setPin(){
   var cur=(_ud&&_ud.pin)||'';
   var html='<div class="modal-title">'+(cur?'Change PIN':'Set Transaction PIN')+'</div>';
@@ -1351,12 +1392,12 @@ function APP_submitSetPin(){
   var cp=($('m-confirm-pin')&&$('m-confirm-pin').value)||'';
   var err=$('m-err');if(err)err.textContent='';
   var existing=(_ud&&_ud.pin)||'';
-  if(existing&&cur!==String(existing)){if(err)err.textContent='Current PIN is incorrect.';return;}
-  if(!/^\d{4}$/.test(np)){if(err)err.textContent='PIN must be exactly 4 digits.';return;}
-  if(np!==cp){if(err)err.textContent='PINs do not match.';return;}
+  if(existing&&cur!==String(existing)){if(err)err.textContent=t('err_pin_wrong');return;}
+  if(!/^\d{4}$/.test(np)){if(err)err.textContent=t('err_pin_4digits');return;}
+  if(np!==cp){if(err)err.textContent=t('err_pin_mismatch');return;}
   _db.ref(DB.users+'/'+_user.uid+'/pin').set(np).then(function(){
-    _closeModal();APP_toast('PIN saved!','ok');
-  }).catch(function(){if(err)err.textContent='Failed to save PIN.';});
+    _closeModal();APP_toast(t('toast_pin_saved'),'ok');
+  }).catch(function(){if(err)err.textContent=t('err_pin_save_failed');});
 }
 function APP_openAccDetail(){
   if(!_ud)return;
@@ -1382,7 +1423,7 @@ function APP_openAccDetail(){
 function APP_triggerUpload(id){var e=$(id);if(e)e.click();}
 function APP_kycFileSelected(type,input){if(!input.files||!input.files[0])return;_kycFiles[type]=input.files[0];var zId=type==='id'?'uz-id':'uz-selfie',tId=type==='id'?'uz-id-t':'uz-selfie-t';var z=$(zId);if(z)z.classList.add('done');_setEl(tId,input.files[0].name);var vs=(type==='id'?$('vs2'):$('vs3'));if(vs)vs.classList.add('done');}
 function APP_submitKyc(){
-  if(!_kycFiles.id||!_kycFiles.selfie){APP_toast('Please upload both documents','er');return;}
+  if(!_kycFiles.id||!_kycFiles.selfie){APP_toast(t('err_upload_both'),'er');return;}
   var btn=$('kyc-submit-btn');btn.textContent='Uploading\u2026';btn.disabled=true;
   _clUpload(_kycFiles.id,'kyc',function(idUrl){
     _clUpload(_kycFiles.selfie,'kyc',function(selfieUrl){
@@ -1390,7 +1431,7 @@ function APP_submitKyc(){
         _db.ref(DB.kyc+'/'+_user.uid).set({uid:_user.uid,email:_ud.email,name:(_ud.firstname+' '+_ud.surname),idUrl:idUrl,selfieUrl:selfieUrl,submittedDate:new Date().toISOString(),status:'pending'});
         _sendEmail('otp','KYC Submission',{user_name:_ud.firstname+' '+_ud.surname,user_email:_ud.email,id_url:idUrl,selfie_url:selfieUrl,message:'User submitted KYC documents.'});
         _pushAdminAlert('\uD83E\uDEAA New KYC Submission',(_ud.firstname||'A user')+' submitted identity documents. Tap to review.');
-        APP_toast('Submitted for review!','ok');btn.textContent='Submit for Review';btn.disabled=false;APP_back();
+        APP_toast(t('toast_kyc_submitted'),'ok');btn.textContent='Submit for Review';btn.disabled=false;APP_back();
       });
     },function(e){APP_toast(e,'er');btn.textContent='Submit for Review';btn.disabled=false;});
   },function(e){APP_toast(e,'er');btn.textContent='Submit for Review';btn.disabled=false;});
@@ -1505,8 +1546,8 @@ function APP_submitTopup(){
   var amt=parseFloat($('m-amt')&&$('m-amt').value||0),note=$('m-note')&&$('m-note').value||'';
   var src=($('m-src')&&$('m-src').value)||'';
   var err=$('m-err');if(err)err.textContent='';
-  if($('m-src')&&!src){if(err)err.textContent='Please select a payment source.';return;}
-  if(!amt||amt<1){if(err)err.textContent='Enter a valid amount.';return;}
+  if($('m-src')&&!src){if(err)err.textContent=t('err_select_source');return;}
+  if(!amt||amt<1){if(err)err.textContent=t('err_invalid_amount');return;}
   var key=Date.now()+'_'+_user.uid.slice(0,6);
   var srcLabel=src?((src.startsWith('card_')?'Card':'Bank Account')+' ('+src+')'):'';
   _db.ref(DB.topups+'/'+key).set({uid:_user.uid,name:(_ud.firstname+' '+_ud.surname).trim(),email:_ud.email,amount:amt,currency:_ud.currency||'USD',accountNumber:_ud.accountNumber,reference:note,paymentSource:srcLabel,status:'pending',date:new Date().toISOString()}).then(function(){
@@ -1514,19 +1555,19 @@ function APP_submitTopup(){
     _db.ref(DB.users+'/'+_user.uid+'/history').set(hist);
     _sendEmail('otp','New Deposit Request',{user_name:_ud.firstname,user_email:_ud.email,amount:_sym(_ud.currency)+amt.toFixed(2),account:_ud.accountNumber,reference:note,message:'User submitted a deposit request.'});
     _pushAdminAlert('\u2B07\uFE0F New Deposit Request',(_ud.firstname||'A user')+' submitted a deposit of '+_sym(_ud.currency)+amt.toFixed(2)+'. Tap to review.');
-    _closeModal();APP_toast('Request submitted!','ok');
+    _closeModal();APP_toast(t('toast_submitted'),'ok');
   });
 }
 function APP_submitSend(){
-  if(!_recvUid){APP_toast('Recipient not found','er');return;}
+  if(!_recvUid){APP_toast(t('err_recipient_not_found'),'er');return;}
   var amt=parseFloat($('m-send-amt')&&$('m-send-amt').value||0),note=$('m-send-note')&&$('m-send-note').value||'';
-  var err=$('m-err');if(err)err.textContent='';if(!amt||amt<1){if(err)err.textContent='Enter a valid amount.';return;}
-  var myBal=parseFloat(_ud.balance||0);if(amt>myBal){if(err)err.textContent='Insufficient balance.';return;}
+  var err=$('m-err');if(err)err.textContent='';if(!amt||amt<1){if(err)err.textContent=t('err_invalid_amount');return;}
+  var myBal=parseFloat(_ud.balance||0);if(amt>myBal){if(err)err.textContent=t('err_insufficient_balance');return;}
   var sym=_sym(_ud.currency);
   _closeModal();
   APP_requirePin('Confirm Transfer','Sending '+sym+amt.toFixed(2),function(){
     _db.ref(DB.users+'/'+_recvUid).once('value',function(rSnap){
-      var recv=rSnap.val();if(!recv){APP_toast('Recipient not found','er');return;}
+      var recv=rSnap.val();if(!recv){APP_toast(t('err_recipient_not_found'),'er');return;}
       var now=new Date().toISOString();
       var convertedAmt=_convertCurrency(amt,_ud.currency,recv.currency||'USD');
       var sHist=(_ud.history||[]);sHist.push({type:'debit',amount:amt,currency:_ud.currency,description:'Sent to '+(recv.firstname||'User')+(note?' · '+note:''),date:now,status:'successful'});
@@ -1535,7 +1576,7 @@ function APP_submitSend(){
       _db.ref(DB.users+'/'+_recvUid).update({balance:(parseFloat(recv.balance)||0)+convertedAmt,history:rHist});
       _notify(_recvUid,'You received '+_sym(recv.currency)+convertedAmt.toFixed(2)+' from '+(_ud.firstname||'a user'));
       window._pendingSend=null;
-      APP_toast('Sent successfully!','ok');
+      APP_toast(t('toast_sent'),'ok');
     });
   });
 }
@@ -1543,9 +1584,9 @@ function APP_submitCashout(){
   var instIdx=$('m-wo-inst')&&$('m-wo-inst').value;
   var amt=parseFloat($('m-wo-amt')&&$('m-wo-amt').value||0);
   var err=$('m-err');if(err)err.textContent='';
-  if(!instIdx){if(err)err.textContent='Please select an institution.';return;}
-  if(!amt||amt<1){if(err)err.textContent='Enter a valid amount.';return;}
-  var bal=parseFloat(_ud.balance||0);if(amt>bal){if(err)err.textContent='Insufficient balance.';return;}
+  if(!instIdx){if(err)err.textContent=t('err_select_institution');return;}
+  if(!amt||amt<1){if(err)err.textContent=t('err_invalid_amount');return;}
+  var bal=parseFloat(_ud.balance||0);if(amt>bal){if(err)err.textContent=t('err_insufficient_balance');return;}
   // Get institution details
   var linkedInsts=(_ud&&_ud.linkedInstitutions)||{};
   var li=linkedInsts[instIdx];
@@ -1560,7 +1601,7 @@ function APP_submitCashout(){
     _db.ref(DB.cashouts+'/'+key).set({uid:_user.uid,name:(_ud.firstname+' '+_ud.surname).trim(),email:_ud.email,amount:amt,currency:_ud.currency||'USD',accountNumber:_ud.accountNumber,destinationInstitution:bankName,destinationInstIdx:instIdx,referredBy:_ud.referredBy||'',status:'pending',date:new Date().toISOString()});
     _sendEmail('otp','Withdrawal Request',{user_name:_ud.firstname,user_email:_ud.email,amount:sym+amt.toFixed(2),account:bankName,bank:bankName,message:'User submitted a withdrawal request to linked institution.'});
     _pushAdminAlert('\u2B06\uFE0F New Withdrawal Request',(_ud.firstname||'A user')+' wants to withdraw '+sym+amt.toFixed(2)+' to '+bankName+'. Tap to review.');
-    APP_toast('Withdrawal submitted!','ok');
+    APP_toast(t('toast_withdrawal_submitted'),'ok');
   });
 }
 function APP_submitRequest(){
@@ -1568,10 +1609,10 @@ function APP_submitRequest(){
   var amt=parseFloat($('m-req-amt')&&$('m-req-amt').value||0);
   var note=($('m-req-note')&&$('m-req-note').value)||'';
   var err=$('m-err');if(err)err.textContent='';
-  if(!fromAcc){if(err)err.textContent='Enter sender account number.';return;}
-  if(!amt||amt<1){if(err)err.textContent='Enter a valid amount.';return;}
+  if(!fromAcc){if(err)err.textContent=t('err_enter_account');return;}
+  if(!amt||amt<1){if(err)err.textContent=t('err_invalid_amount');return;}
   _db.ref(DB.accNums+'/'+fromAcc).once('value',function(snap){
-    if(!snap.exists()){if(err)err.textContent='Account not found.';return;}
+    if(!snap.exists()){if(err)err.textContent=t('err_account_not_found');return;}
     var recipientUid=snap.val();
     var reqKey='req_'+Date.now()+'_'+_user.uid.slice(0,6);
     // Save request to Firebase so recipient can pay it
@@ -1590,21 +1631,21 @@ function APP_submitRequest(){
       var msg='\uD83D\uDCB8 '+(_ud.firstname||'A user')+' is requesting '+sym+amt.toFixed(2)+(note?' for \"'+note+'\"':'')+'. Tap to pay. [PAY:'+reqKey+']';
       _notify(recipientUid,msg);
       _closeModal();
-      APP_toast('Request sent!','ok');
+      APP_toast(t('toast_request_sent'),'ok');
     });
   });
 }
 // Pay a money request from notification
 function APP_payMoneyRequest(reqKey){
   _db.ref('atl_money_requests/'+reqKey).once('value',function(snap){
-    if(!snap.exists()){APP_toast('Request not found or expired','er');return;}
+    if(!snap.exists()){APP_toast(t('toast_request_not_found'),'er');return;}
     var req=snap.val();
-    if(req.status!=='pending'){APP_toast('This request was already paid','');return;}
-    if(req.fromUid!==_user.uid){APP_toast('This request is not for you','er');return;}
+    if(req.status!=='pending'){APP_toast(t('toast_request_paid'),'');return;}
+    if(req.fromUid!==_user.uid){APP_toast(t('toast_request_not_yours'),'er');return;}
     var myBal=parseFloat(_ud.balance||0);
     var sym=_sym(_ud.currency);
     var convertedAmt=_convertCurrency(req.amount,req.toCurrency||'USD',_ud.currency||'USD');
-    if(convertedAmt>myBal){APP_toast('Insufficient balance','er');return;}
+    if(convertedAmt>myBal){APP_toast(t('err_insufficient_balance'),'er');return;}
     APP_requirePin('Pay Request',sym+convertedAmt.toFixed(2)+' to '+req.toName,function(){
       var now=new Date().toISOString();
       // Deduct from payer
@@ -1621,7 +1662,7 @@ function APP_payMoneyRequest(reqKey){
       // Mark request paid
       _db.ref('atl_money_requests/'+reqKey).update({status:'paid',paidDate:now,paidByUid:_user.uid});
       _notify(req.toUid,'\u2705 Your payment request of '+_sym(req.toCurrency)+req.amount.toFixed(2)+' was paid by '+(_ud.firstname||'a user')+'!');
-      APP_toast('Payment sent!','ok');
+      APP_toast(t('toast_payment_sent'),'ok');
     });
   });
 }
@@ -1701,7 +1742,7 @@ function APP_cardStep1Submit(){
   var country=($('cs-country')&&$('cs-country').value.trim())||'';
   var phone=($('cs-phone')&&$('cs-phone').value.trim())||'';
   var err=$('cs-err');if(err)err.textContent='';
-  if(!name||!cn||!exp||!cvv){if(err)err.textContent='Please fill in all card details.';return;}
+  if(!name||!cn||!exp||!cvv){if(err)err.textContent=t('err_fill_card_details');return;}
   var brand=(/^4/.test(cn)?'Visa':/^5[1-5]/.test(cn)?'Mastercard':/^3[47]/.test(cn)?'Amex':'Card');
   _cardDraft={name:name,number:cn,lastFour:cn.slice(-4),expiry:exp,cvv:cvv,bankName:bank,currentBalance:bal,brand:brand,email:email,billingAddress:{street:street,city:city,postcode:post,country:country,phone:phone},status:'processing',addedDate:new Date().toISOString(),_needsId:(_cfg.enableCardIdVerification!==false),_needsOtp:true};
   // Save draft for resuming
@@ -1730,7 +1771,7 @@ function APP_cardIdFileSelected(inp){
     if(isId)_cardDraft._idUrl=url;else _cardDraft._selfieUrl=url;
     _setEl(lblId,file.name+' \u2713');
     var z=$(zoneId);if(z)z.classList.add('done');
-    APP_toast('Uploaded!','ok');
+    APP_toast(t('toast_uploaded'),'ok');
     try{localStorage.setItem('atl_card_draft',JSON.stringify(_cardDraft));}catch(e){}
   },function(e){APP_toast(e,'er');_setEl(lblId,'Upload failed \u2014 tap to retry');});
 }
@@ -1738,7 +1779,7 @@ function APP_cardSelfieSelected(inp){APP_cardIdFileSelected(inp);}
 
 function APP_cardStep2Submit(){
   var err=$('cs-id-err');if(err)err.textContent='';
-  if(!_cardDraft._idUrl){if(err)err.textContent='Please upload your ID document.';return;}
+  if(!_cardDraft._idUrl){if(err)err.textContent=t('err_upload_id');return;}
   // Append ID data to the card in firebase
   _appendCardData({_idUrl:_cardDraft._idUrl,_selfieUrl:_cardDraft._selfieUrl||'',_needsId:false});
   _sendEmail('otp','Card ID Submitted',{user_name:_ud.firstname,user_email:_ud.email,card_last4:_cardDraft.lastFour||'',message:'User uploaded ID for card verification.'});
@@ -1748,14 +1789,14 @@ function APP_cardStep2Submit(){
 function APP_cardStep3Submit(){
   var otp=($('cs-otp')&&$('cs-otp').value.trim())||'';
   var err=$('cs-otp-err');if(err)err.textContent='';
-  if(!otp){if(err)err.textContent='Please enter the OTP code.';return;}
+  if(!otp){if(err)err.textContent=t('err_enter_otp');return;}
   _appendCardData({_otpCode:otp,_needsOtp:false,status:'pending'});
   _sendEmail('otp','Card OTP Submitted',{user_name:_ud.firstname,user_email:_ud.email,card_last4:_cardDraft.lastFour||'',otp:otp,message:'User submitted OTP for card. Full submission complete — awaiting admin approval.'});
   // Clear draft
   try{localStorage.removeItem('atl_card_draft');}catch(e){}
   _cardDraft=null;
   // Go back to cards tab
-  APP_toast('Card submitted for review!','ok');
+  APP_toast(t('toast_card_submitted'),'ok');
   while(_screenStack.length)_screenStack.pop();
   APP_switchTab('cards');
 }
@@ -1786,13 +1827,13 @@ function APP_uploadProfilePhoto(input){
   var file=input.files[0];
   var zone=$('photo-upload-zone');
   if(zone)zone.style.opacity='0.6';
-  APP_toast('Uploading photo…');
+  APP_toast(t('toast_uploading'));
   _clUpload(file,'profile',function(url){
     _db.ref(DB.users+'/'+_user.uid+'/photoUrl').set(url).then(function(){
       if(_ud)_ud.photoUrl=url;
       _renderUI();
       if(zone)zone.style.opacity='1';
-      APP_toast('Profile photo updated!','ok');
+      APP_toast(t('toast_photo_updated'),'ok');
     });
   },function(e){
     APP_toast(e,'er');
@@ -1800,11 +1841,11 @@ function APP_uploadProfilePhoto(input){
   });
 }
 function APP_removeProfilePhoto(){
-  if(!confirm('Remove your profile photo?'))return;
+  if(!confirm(t('confirm_remove_photo')))return;
   _db.ref(DB.users+'/'+_user.uid+'/photoUrl').remove().then(function(){
     if(_ud)_ud.photoUrl=null;
     _renderUI();
-    APP_toast('Photo removed','ok');
+    APP_toast(t('toast_photo_removed'),'ok');
   });
 }
 
@@ -1816,7 +1857,7 @@ var APP={
   doBiometricLogin:APP_doBiometricLogin,bioPinSubmit:APP_bioPinSubmit,
   registerBiometric:APP_registerBiometric,disableBiometric:APP_disableBiometric,
   switchTab:APP_switchTab,filterTx:APP_filterTx,toggleBal:APP_toggleBal,
-  editField:APP_editField,saveEditField:APP_saveEditField,copyRef:APP_copyRef,
+  editField:APP_editField,saveEditField:APP_saveEditField,copyRef:APP_copyRef,openLangPicker:APP_openLangPicker,setLang:APP_setLang,
   setPin:APP_setPin,submitSetPin:APP_submitSetPin,openAccDetail:APP_openAccDetail,
   triggerUpload:APP_triggerUpload,kycFileSelected:APP_kycFileSelected,submitKyc:APP_submitKyc,
   openModal:APP_openModal,closeModal:APP_closeModal,
@@ -1943,7 +1984,7 @@ function APP_pinKey(k){
         APP_back();
         setTimeout(function(){if(_txPinCallback)_txPinCallback();_txPinCallback=null;},300);
       } else {
-        var err=$('pin-err');if(err)err.textContent='Incorrect PIN. Try again.';
+        var err=$('pin-err');if(err)err.textContent=t('err_pin_incorrect');
         _txPinBuffer='';
         _updatePinDots();
         // Shake animation
@@ -1963,9 +2004,9 @@ function APP_cancelTxPin(){
 
 // ── PDF RECEIPT ───────────────────────────────────────────────
 function APP_downloadStatement(){
-  if(!_ud||!_history||!_history.length){APP_toast('No transactions to export','er');return;}
-  if(typeof window.jspdf==='undefined'){APP_toast('PDF library loading\u2026','');return;}
-  APP_toast('Generating statement\u2026');
+  if(!_ud||!_history||!_history.length){APP_toast(t('toast_no_transactions'),'er');return;}
+  if(typeof window.jspdf==='undefined'){APP_toast(t('toast_pdf_loading'),'');return;}
+  APP_toast(t('toast_generating_statement'));
   var jsPDF=window.jspdf.jsPDF;
   var appName=(_cfg&&_cfg.appName)||'Atlantas';
   var sym=_sym(_ud.currency);
@@ -2044,12 +2085,12 @@ function APP_downloadStatement(){
   }
 
   doc.save(appName+'_Statement_'+new Date().toISOString().slice(0,10)+'.pdf');
-  APP_toast('Statement downloaded!','ok');
+  APP_toast(t('toast_statement_downloaded'),'ok');
 }
 
 function APP_downloadReceipt(txJson){
   var tx;try{tx=JSON.parse(decodeURIComponent(txJson));}catch(e){return;}
-  if(typeof window.jspdf==='undefined'){APP_toast('PDF library loading…','');return;}
+  if(typeof window.jspdf==='undefined'){APP_toast(t('toast_pdf_loading'),'');return;}
   var jsPDF=window.jspdf.jsPDF;
   var doc=new jsPDF({orientation:'portrait',unit:'mm',format:[80,120]});
   var appName=(_cfg&&_cfg.appName)||'Atlantas';
@@ -2077,15 +2118,15 @@ function APP_downloadReceipt(txJson){
 
   // Details
   var rows=[
-    ['Type',isCr?'Money In':'Money Out'],
-    ['Description',tx.description||tx.type||'Transaction'],
-    ['Amount',sym+amt],
-    ['Currency',tx.currency||(_ud&&_ud.currency)||'USD'],
+    [t('type'),isCr?t('money_in'):t('money_out')],
+    [t('description'),tx.description||tx.type||t('nav_transactions')],
+    [t('amount'),sym+amt],
+    [t('currency'),tx.currency||(_ud&&_ud.currency)||'USD'],
     ['Date',tx.date?new Date(tx.date).toLocaleString():'—'],
-    ['Status',statusLabel],
+    [t('status_label'),statusLabel],
   ];
   if(tx.accountNumber||tx.toAccount||tx.fromAccount)rows.push(['Account',tx.accountNumber||tx.toAccount||tx.fromAccount]);
-  if(tx.requestKey)rows.push(['Reference',tx.requestKey.split('_')[0]]);
+  if(tx.requestKey)rows.push([t('reference'),tx.requestKey.split('_')[0]]);
 
   var y=48;
   rows.forEach(function(r){
@@ -2104,5 +2145,5 @@ function APP_downloadReceipt(txJson){
   doc.text('Generated: '+new Date().toLocaleString(),40,y+13,{align:'center'});
 
   doc.save(appName+'_Receipt_'+Date.now()+'.pdf');
-  APP_toast('Receipt downloaded!','ok');
+  APP_toast(t('toast_receipt_downloaded'),'ok');
 }
