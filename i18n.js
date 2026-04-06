@@ -42,7 +42,7 @@
   }
 
   function _load(lang, cb){
-    var path = 'locales/' + lang + '.json';
+    var path = lang + '.json';
     fetch(path).then(function(r){ return r.json(); }).then(function(data){
       _strings = data;
       _lang = lang;
