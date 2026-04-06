@@ -342,7 +342,7 @@ _auth.onAuthStateChanged(function(user){
     _show('gate',false);
     if($('gate-spinner'))$('gate-spinner').style.display='none';
     _setEl('gate-title','Welcome to Atlantas');_setEl('gate-sub','Please sign in to continue.');
-    var termsOk=localStorage.getItem('atl_terms_ok');
+    var termsOk=false;try{termsOk=!!localStorage.getItem('atl_terms_ok');}catch(e){}
     setTimeout(function(){_show(termsOk?'auth':'terms',false);},400);
     return;
   }
@@ -1213,9 +1213,11 @@ function APP_openLangPicker(){
   var html='<div class="modal-title">'+t('language','Language')+'</div>';
   (window.i18n?window.i18n.supported:['en','fr','es','pt-BR','pt-PT']).forEach(function(code){
     var active=code===current;
-    html+='<div onclick="APP.setLang(''+code+'')" style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-radius:10px;margin-bottom:6px;cursor:pointer;background:'+(active?'var(--pl)':'var(--bg)')+';border:1.5px solid '+(active?'var(--p)':'var(--border)')+';">'+
-      '<span style="font-size:15px;font-weight:600;">'+(_langNames[code]||code)+'</span>'+
-      (active?'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--p)" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>':'')+'</div>';
+    var bg=active?'var(--pl)':'var(--bg)';
+    var brd=active?'var(--p)':'var(--border)';
+    var chk=active?'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--p)" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>':'';
+    html+='<div data-lang="'+code+'" onclick="APP.setLang(this.dataset.lang)" style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-radius:10px;margin-bottom:6px;cursor:pointer;background:'+bg+';border:1.5px solid '+brd+';">'+
+      '<span style="font-size:15px;font-weight:600;">'+(_langNames[code]||code)+'</span>'+chk+'</div>';
   });
   html+='<button class="modal-btn" style="background:var(--bg);color:var(--text);border:1.5px solid var(--border);margin-top:4px;" onclick="APP.closeModal(event)">'+t('cancel','Cancel')+'</button>';
   body.innerHTML=html;
@@ -1253,7 +1255,7 @@ function _checkSessionResume(){
     }
   }catch(e){}
 }
-function APP_acceptTerms(){localStorage.setItem('atl_terms_ok','1');_show('auth',false);}
+function APP_acceptTerms(){try{localStorage.setItem('atl_terms_ok','1');}catch(e){}_show('auth',false);}
 
 // ── AUTH ──────────────────────────────────────────────────────
 function APP_authTab(name){$('lf-login').style.display=name==='login'?'':'none';$('lf-signup').style.display=name==='signup'?'':'none';$('atab-login').classList.toggle('on',name==='login');$('atab-signup').classList.toggle('on',name==='signup');}
