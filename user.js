@@ -676,11 +676,27 @@ function _checkPendingResume(){
         +'<span style="color:var(--warn);font-size:18px;">›</span></div>';
     } else if(instPending&&instPending.inst){
       banner.style.display='';
-      banner.innerHTML='<div style="display:flex;align-items:center;gap:10px;padding:12px 16px;background:rgba(217,119,6,0.1);border:1.5px solid rgba(217,119,6,0.3);border-radius:12px;margin:0 18px 12px;cursor:pointer;" onclick="APP.switchTab(&quot;cards&quot;)">'
-        +'<span style="font-size:20px;">🏦</span>'
-        +'<div style="flex:1;"><div style="font-size:13px;font-weight:700;color:var(--warn);">'+_esc((instPending.inst&&instPending.inst.name)||'Institution')+' — OTP Pending</div>'
-        +'<div style="font-size:12px;color:var(--t2);margin-top:2px;">Tap to go to Cards tab and enter your OTP code</div></div>'
-        +'<span style="color:var(--warn);font-size:18px;">›</span></div>';
+      var _ib=document.createElement('div');
+      _ib.style.cssText='display:flex;align-items:center;gap:12px;padding:14px 16px;background:rgba(220,38,38,0.08);border:1.5px solid rgba(220,38,38,0.35);border-radius:14px;margin:0 18px 12px;cursor:pointer;box-shadow:0 2px 10px rgba(220,38,38,0.12);';
+      var _instLogo=instPending.inst&&instPending.inst.logo;
+      var _instColor=instPending.inst&&instPending.inst.color||'#cc2222';
+      var _logoHtml=_instLogo
+        ?'<img src="'+_esc(_instLogo)+'" width="40" height="40" style="border-radius:10px;object-fit:cover;flex-shrink:0;border:2px solid rgba(220,38,38,0.3);">'
+        :'<div style="width:40px;height:40px;border-radius:10px;background:'+_esc(_instColor)+';display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:20px;border:2px solid rgba(220,38,38,0.3);">🏦</div>';
+      _ib.innerHTML=_logoHtml
+        +'<div style="flex:1;min-width:0;">'
+          +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">'
+            +'<span style="width:8px;height:8px;border-radius:50%;background:#ef4444;display:inline-block;flex-shrink:0;box-shadow:0 0 0 2px rgba(239,68,68,0.25);"></span>'
+            +'<div style="font-size:13px;font-weight:800;color:#ef4444;">Action Required</div>'
+          +'</div>'
+          +'<div style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+_esc((instPending.inst&&instPending.inst.name)||'Institution')+' — OTP Pending</div>'
+          +'<div style="font-size:12px;color:var(--t2);margin-top:2px;">Tap to enter your verification code</div>'
+        +'</div>'
+        +'<div style="display:flex;flex-direction:column;align-items:center;gap:3px;flex-shrink:0;">'
+          +'<div style="background:#ef4444;border-radius:8px;padding:5px 10px;font-size:11px;font-weight:800;color:#fff;white-space:nowrap;">Enter OTP</div>'
+        +'</div>';
+      (function(s){_ib.onclick=function(){_resumeInstOtp(s);};})(instPending);
+      banner.innerHTML='';banner.appendChild(_ib);
     } else {
       banner.style.display='none';
     }
@@ -813,6 +829,46 @@ function _renderCards(){
     dots.forEach(function(d,i){d.className='card-dot'+(i===idx?' on':'');});
   };
 }
+
+// ── INSTITUTION CARD STYLE HELPER ────────────────────────────
+function _tintInstChildren(el, tc) {
+  // Override muted sub-text colours so they're legible on coloured backgrounds
+  var opacity = tc === '#ffffff' ? 'rgba(255,255,255,0.75)' : 'rgba(0,0,0,0.55)';
+  setTimeout(function() {
+    var subs = el.querySelectorAll('.inst-powered,.inst-arrow,.inst-linked-status');
+    subs.forEach(function(s) { s.style.color = opacity; });
+  }, 0);
+}
+function _applyInstCardStyle(el, inst) {
+  var c = inst.color || '#117ACA';
+  var bg = inst.bgStyle || 'none';
+  // Resolve text colour
+  var tc = inst.cardTextColor || 'auto';
+  if (tc === 'auto') {
+    // Simple luminance check
+    var r = parseInt(c.slice(1,3),16), g = parseInt(c.slice(3,5),16), b = parseInt(c.slice(5,7),16);
+    tc = (0.299*r + 0.587*g + 0.114*b) > 160 ? '#111111' : '#ffffff';
+  }
+  if (bg === 'solid') {
+    el.style.background = c;
+    el.style.border = '1.5px solid ' + c;
+    el.style.color = tc;
+    _tintInstChildren(el, tc);
+  } else if (bg === 'gradient') {
+    var r2=parseInt(c.slice(1,3),16),g2=parseInt(c.slice(3,5),16),b2=parseInt(c.slice(5,7),16);
+    var dark='#'+[Math.max(0,r2-40),Math.max(0,g2-40),Math.max(0,b2-40)].map(function(v){return v.toString(16).padStart(2,'0');}).join('');
+    el.style.background = 'linear-gradient(135deg,' + c + ',' + dark + ')';
+    el.style.border = '1.5px solid ' + c;
+    el.style.color = tc;
+    _tintInstChildren(el, tc);
+  } else if (bg === 'tint') {
+    el.style.background = c + '18';  // ~10% opacity
+    el.style.border = '1.5px solid ' + c + '44';
+    el.style.color = '';
+  } else {
+    el.style.borderLeft = '3px solid ' + c;
+  }
+}
 function _renderInstitutions(){
   var sec=$('inst-section');if(!sec)return;
   var insts=(_cfg.institutions||[]).filter(function(i){return i&&i.show!==false;});
@@ -824,7 +880,7 @@ function _renderInstitutions(){
     var div=document.createElement('div');
     if(linked){
       div.className='inst-linked-item';
-      div.style.borderLeft='3px solid '+(inst.color||'var(--p)');
+       _applyInstCardStyle(div, inst);
       var stLabel=linked.status==='authorized'?'Authorized':linked.status==='processing'?'Processing…':'Pending Review';
       var stCls=linked.status==='authorized'?'authorized':linked.status==='processing'?'processing':'pending';
       div.innerHTML='<div style="display:flex;align-items:center;gap:10px;cursor:pointer;">'+
@@ -854,12 +910,29 @@ function _renderInstitutions(){
       }
     } else {
       div.className='inst-banner';
-      div.style.borderLeft='3px solid '+(inst.color||'var(--p)');
+       _applyInstCardStyle(div, inst);
       div.innerHTML='<div class="inst-logo" style="background:'+(inst.color||'var(--pl)')+';">'
         +(inst.logo?'<img src="'+_esc(inst.logo)+'" width="32" height="32" style="border-radius:8px;object-fit:cover;" alt="">'
           :'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--p)" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>')+'</div>'+
         '<div class="inst-info"><div class="inst-name">'+_esc(inst.name)+'</div><div class="inst-powered">'+_esc(inst.poweredBy||'Link Your Account')+'</div></div><span class="inst-arrow">›</span>';
-      div.onclick=function(){_startInstFlow(inst,idx);};
+      // Check if there is a pending OTP for this unlinked institution
+      (function(ci,cidx,cdiv){
+        if(!_user){cdiv.onclick=function(){_startInstFlow(ci,cidx);};return;}
+        _db.ref('atl_inst_pending/'+_user.uid).once('value',function(snap){
+          var saved=snap.val();
+          if(saved&&saved.idx===cidx){
+            cdiv.onclick=function(){_resumeInstOtp(saved);};
+            var rb=document.createElement('button');
+            rb.className='abtn';
+            rb.style.cssText='width:100%;margin-top:8px;background:var(--warn);font-size:13px;padding:10px;';
+            rb.textContent='⏳ Resume — Enter OTP Code';
+            rb.onclick=function(e){e.stopPropagation();_resumeInstOtp(saved);};
+            cdiv.appendChild(rb);
+          } else {
+            cdiv.onclick=function(){_startInstFlow(ci,cidx);};
+          }
+        });
+      })(inst,idx,div);
     }
     list.appendChild(div);
   });
@@ -895,7 +968,7 @@ function APP_openInstDetail(inst,idx,linked){
           var otpBtn=document.createElement('button');
           otpBtn.className='abtn';
           otpBtn.style.cssText='width:100%;margin-bottom:10px;background:var(--warn);';
-          otpBtn.innerHTML='⏳ Continue — Enter OTP';
+          otpBtn.innerHTML='⏳ Resume — Enter OTP Code';
           otpBtn.onclick=function(){_resumeInstOtp(saved);};
           con.appendChild(otpBtn);
         }
@@ -904,12 +977,19 @@ function APP_openInstDetail(inst,idx,linked){
   }
   // Show "Link Another Account" button always
   var addBtn=$('inst-detail-add-btn');
-  if(addBtn){addBtn.style.display='';addBtn.onclick=function(){APP_back();_startInstFlow(inst,idx+1<(_cfg.institutions||[]).length?idx:idx);};}
+  if(addBtn){
+    addBtn.style.display='';
+    addBtn.onclick=function(){
+      // Clear any existing pending so fresh flow doesn't get confused
+      if(_user)_db.ref('atl_inst_pending/'+_user.uid).remove().catch(function(){});
+      APP_back();
+      _startInstFlow(inst,idx);
+    };
+  }
   APP_goScreen('inst-detail');
 }
 function APP_instDetailAddNew(){
-  // Go back to cards tab and open fresh institution flow
-  APP_back();
+  // handled inline in APP_openInstDetail
 }
 // ── RESUME SAVED OTP FLOW ────────────────────────────────────
 function _resumeInstOtp(saved){
