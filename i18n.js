@@ -62,6 +62,9 @@
     });
   }
 
+  // Re-apply when DOM is fully ready
+  document.addEventListener('DOMContentLoaded', function(){ if(Object.keys(_strings).length) _apply(); });
+
   // Public API
   window.i18n = {
     t: function(key, fallback){
