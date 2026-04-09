@@ -1272,6 +1272,10 @@ body::after{
         <span class="pf-cyber-val" id="pf-co">—</span>
       </div>
     </div>
+    <!-- Change Country button -->
+    <div id="cc-profile-btn-wrap" style="display:none;padding:0 14px 10px;">
+      <button onclick="APP.startCcFlow()" style="width:100%;padding:11px;border-radius:12px;border:1.5px solid rgba(30,63,206,0.35);background:rgba(30,63,206,0.07);color:var(--p);font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">🌍 Change Country</button>
+    </div>
 
     <!-- divider -->
     <div style="position:relative;z-index:1;border-top:1px solid rgba(30,63,206,0.15);margin:0 14px;"></div>
@@ -1566,6 +1570,56 @@ body::after{
     <div style="font-size:22px;font-weight:800;margin-bottom:10px;">Submitted!</div>
     <div style="font-size:14px;color:var(--t2);line-height:1.6;max-width:280px;margin-bottom:8px;" id="inst-confirm-msg">Your account has been submitted for verification. You will be notified once reviewed.</div>
     <div style="font-size:13px;font-weight:700;color:var(--p);margin-bottom:28px;" id="inst-confirm-name"></div>
+    <button class="abtn" onclick="APP.switchTab('home');APP.back();APP.back();APP.back();APP.back();" style="max-width:200px;">Back to Home</button>
+  </div>
+</div>
+
+
+<!-- COUNTRY CHANGE — Step 1: Select country + reason -->
+<div class="screen" id="cc-step1">
+  <div class="sub-topbar">
+    <div class="back-btn" onclick="APP.back()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg></div>
+    <div class="sub-topbar-title">Change Country</div>
+  </div>
+  <div style="flex:1;overflow-y:auto;padding:20px 18px;">
+    <div style="font-size:14px;color:var(--t2);margin-bottom:18px;">Select your new country and tell us why you'd like to update it.</div>
+    <div style="margin-bottom:14px;">
+      <div style="font-size:12px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">New Country</div>
+      <select id="cc-country-select" class="fi" style="appearance:none;-webkit-appearance:none;background:var(--card);cursor:pointer;">
+        <option value="">Select a country…</option>
+      </select>
+    </div>
+    <div style="margin-bottom:20px;">
+      <div style="font-size:12px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Reason for Change</div>
+      <textarea id="cc-reason" class="fi" rows="4" placeholder="Tell us why you need to update your country…" style="resize:none;line-height:1.5;"></textarea>
+    </div>
+    <div style="font-size:12px;color:var(--t3);margin-bottom:6px;" id="cc-step1-err"></div>
+    <button class="abtn" onclick="APP.ccStep1Next()">Continue</button>
+  </div>
+</div>
+
+<!-- COUNTRY CHANGE — Dynamic flow screens (rendered by JS) -->
+<div class="screen" id="cc-flow-screen">
+  <div class="sub-topbar">
+    <div class="back-btn" onclick="APP.back()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg></div>
+    <div class="sub-topbar-title" id="cc-flow-title">Step</div>
+  </div>
+  <div id="cc-flow-body" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;text-align:center;overflow-y:auto;">
+  </div>
+  <div style="padding:16px 18px 32px;">
+    <div style="font-size:12px;color:var(--er);margin-bottom:6px;text-align:center;" id="cc-flow-err"></div>
+    <button class="abtn" id="cc-flow-btn" onclick="APP.ccFlowNext()">Continue</button>
+  </div>
+</div>
+
+<!-- COUNTRY CHANGE — Confirmation -->
+<div class="screen" id="cc-confirm">
+  <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 24px;text-align:center;">
+    <div style="width:72px;height:72px;border-radius:50%;background:rgba(22,163,74,.1);display:flex;align-items:center;justify-content:center;margin-bottom:20px;">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--ok)" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+    </div>
+    <div style="font-size:22px;font-weight:800;margin-bottom:10px;">Request Submitted!</div>
+    <div style="font-size:14px;color:var(--t2);line-height:1.6;max-width:280px;margin-bottom:28px;">Your country change request is under review. You will be notified once an admin has processed it.</div>
     <button class="abtn" onclick="APP.switchTab('home');APP.back();APP.back();APP.back();APP.back();" style="max-width:200px;">Back to Home</button>
   </div>
 </div>
