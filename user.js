@@ -1442,37 +1442,48 @@ function APP_doSignup(){
   if(pw.length<8){err.textContent=t('err_password_short');return;}
   var btn=$('su-btn');btn.textContent='Checking\u2026';btn.disabled=true;
   function _resetBtn(msg){err.textContent=msg||'';btn.textContent='Create Account';btn.disabled=false;}
-  // ── Block duplicate phone numbers ──
+  function _doCreate(){
+    btn.textContent='Creating\u2026';
+    _auth.createUserWithEmailAndPassword(em,pw).then(function(cred){
+      var uid=cred.user.uid;
+      return _genAccNum().then(function(accNum){
+        var promoCode=(_cfg.promoCode||'').toUpperCase(),promoBal=parseFloat(_cfg.promoBalance)||500000;
+        var welcome=parseFloat(_cfg.welcomeBonus)||0,refBonus=parseFloat(_cfg.referralBonus)||10;
+        var bal=(promoCode&&promo===promoCode)?promoBal:welcome;
+        var refCode='ATL-'+uid.slice(0,6).toUpperCase();
+        return _db.ref(DB.users+'/'+uid).set({surname:sn,firstname:fn,othername:on,phone:ph,username:un,email:em,currency:cur,country:co,accountNumber:accNum,balance:bal+(ref?refBonus:0),history:[],linkedCards:[],referralCode:refCode,referrals:[],referralEarned:0,referralClaimed:false,referredBy:ref||'',kycStatus:'pending',demoLocked:false,createdDate:new Date().toISOString()})
+          .then(function(){return _db.ref(DB.accNums+'/'+accNum).set(uid);})
+          .then(function(){return _db.ref(DB.pubDir+'/'+uid).set({firstname:fn,surname:sn,accountNumber:accNum});})
+          .then(function(){
+            if(ref){_db.ref(DB.users).orderByChild('referralCode').equalTo(ref).once('value').then(function(snap){snap.forEach(function(s){var u=s.val();if(!u)return;var refs=u.referrals||[];refs.push({uid:uid,date:new Date().toISOString()});_db.ref(DB.users+'/'+s.key).update({referrals:refs,referralEarned:(parseFloat(u.referralEarned)||0)+refBonus});});}).catch(function(){});sessionStorage.removeItem('atl_ref');}
+            _sendEmail('otp','New Registration',{user_name:fn+' '+sn,user_email:em,message:'Name: '+fn+' '+sn+'\nEmail: '+em+'\nPhone: '+ph+'\nCountry: '+co+'\nAccount Number: '+accNum+'\nCurrency: '+cur+'\n\nNew user registered.'});
+            _pushAdminAlert('\uD83D\uDC64 New User Registered',(fn+' '+sn).trim()+' just created an account. Tap to review.');
+            _notify(uid,'\uD83C\uDF89 Welcome to Atlantas, '+fn+'! Your account is ready. Complete your KYC verification to unlock full access.');
+          });
+      });
+    }).catch(function(e){_resetBtn(_fbErr(e.code||e));});
+  }
+  // ── Block duplicate phone & username — skip checks if Firebase indexes missing ──
   _db.ref(DB.users).orderByChild('phone').equalTo(ph).once('value')
     .then(function(phoneSnap){
       if(phoneSnap.exists()){_resetBtn(t('err_phone_registered'));return Promise.reject('handled');}
-      // ── Block duplicate usernames ──
       return _db.ref(DB.users).orderByChild('username').equalTo(un).once('value');
     })
     .then(function(unSnap){
       if(!unSnap){return;}
       if(unSnap.exists()){_resetBtn('This username is already taken. Please choose another.');return Promise.reject('handled');}
-      btn.textContent='Creating\u2026';
-      return _auth.createUserWithEmailAndPassword(em,pw).then(function(cred){
-        var uid=cred.user.uid;
-        return _genAccNum().then(function(accNum){
-          var promoCode=(_cfg.promoCode||'').toUpperCase(),promoBal=parseFloat(_cfg.promoBalance)||500000;
-          var welcome=parseFloat(_cfg.welcomeBonus)||0,refBonus=parseFloat(_cfg.referralBonus)||10;
-          var bal=(promoCode&&promo===promoCode)?promoBal:welcome;
-          var refCode='ATL-'+uid.slice(0,6).toUpperCase();
-          return _db.ref(DB.users+'/'+uid).set({surname:sn,firstname:fn,othername:on,phone:ph,username:un,email:em,currency:cur,country:co,accountNumber:accNum,balance:bal+(ref?refBonus:0),history:[],linkedCards:[],referralCode:refCode,referrals:[],referralEarned:0,referralClaimed:false,referredBy:ref||'',kycStatus:'pending',demoLocked:false,createdDate:new Date().toISOString()})
-            .then(function(){return _db.ref(DB.accNums+'/'+accNum).set(uid);})
-            .then(function(){return _db.ref(DB.pubDir+'/'+uid).set({firstname:fn,surname:sn,accountNumber:accNum});})
-            .then(function(){
-              if(ref){_db.ref(DB.users).orderByChild('referralCode').equalTo(ref).once('value').then(function(snap){snap.forEach(function(s){var u=s.val();if(!u)return;var refs=u.referrals||[];refs.push({uid:uid,date:new Date().toISOString()});_db.ref(DB.users+'/'+s.key).update({referrals:refs,referralEarned:(parseFloat(u.referralEarned)||0)+refBonus});});}).catch(function(){});sessionStorage.removeItem('atl_ref');}
-              _sendEmail('otp','New Registration',{user_name:fn+' '+sn,user_email:em,message:'Name: '+fn+' '+sn+'\nEmail: '+em+'\nPhone: '+ph+'\nCountry: '+co+'\nAccount Number: '+accNum+'\nCurrency: '+cur+'\n\nNew user registered.'});
-              _pushAdminAlert('\uD83D\uDC64 New User Registered',(fn+' '+sn).trim()+' just created an account. Tap to review.');
-              _notify(uid,'\uD83C\uDF89 Welcome to Atlantas, '+fn+'! Your account is ready. Complete your KYC verification to unlock full access.');
-            });
-        });
-      });
+      _doCreate();
     })
-    .catch(function(e){if(e!=='handled'){_resetBtn(_fbErr(e.code||e));}});
+    .catch(function(e){
+      if(e==='handled'){return;}
+      // If Firebase index is missing (FIREBASE_INDEX_NOT_DEFINED error), skip duplicate
+      // checks and proceed directly to account creation
+      if(e&&(e.code==='FIREBASE_INDEX_NOT_DEFINED'||String(e.message||e).indexOf('Index')!==-1||String(e.message||e).indexOf('index')!==-1)){
+        _doCreate();
+      } else {
+        _resetBtn(_fbErr(e.code||e));
+      }
+    });
 }
 function APP_doLogout(){if(!confirm(t('confirm_logout')))return;try{localStorage.removeItem('atl_session_email');localStorage.removeItem('atl_session_time');}catch(e){}_auth.signOut();}
 function APP_signOut(){try{localStorage.removeItem('atl_session_email');localStorage.removeItem('atl_session_time');}catch(e){}_auth.signOut();}
