@@ -1463,27 +1463,18 @@ function APP_doSignup(){
       });
     }).catch(function(e){_resetBtn(_fbErr(e.code||e));});
   }
-  // ── Block duplicate phone & username — skip checks if Firebase indexes missing ──
-  _db.ref(DB.users).orderByChild('phone').equalTo(ph).once('value')
-    .then(function(phoneSnap){
-      if(phoneSnap.exists()){_resetBtn(t('err_phone_registered'));return Promise.reject('handled');}
-      return _db.ref(DB.users).orderByChild('username').equalTo(un).once('value');
-    })
-    .then(function(unSnap){
-      if(!unSnap){return;}
-      if(unSnap.exists()){_resetBtn('This username is already taken. Please choose another.');return Promise.reject('handled');}
-      _doCreate();
-    })
-    .catch(function(e){
-      if(e==='handled'){return;}
-      // If Firebase index is missing (FIREBASE_INDEX_NOT_DEFINED error), skip duplicate
-      // checks and proceed directly to account creation
-      if(e&&(e.code==='FIREBASE_INDEX_NOT_DEFINED'||String(e.message||e).indexOf('Index')!==-1||String(e.message||e).indexOf('index')!==-1)){
+  // ── Check duplicate phone then username, fall through to create on any DB error ──
+  var phoneChecked=false,unChecked=false;
+  function _runChecks(){
+    _db.ref(DB.users).orderByChild('phone').equalTo(ph).once('value',function(phoneSnap){
+      if(phoneSnap.exists()){_resetBtn(t('err_phone_registered'));return;}
+      _db.ref(DB.users).orderByChild('username').equalTo(un).once('value',function(unSnap){
+        if(unSnap.exists()){_resetBtn('This username is already taken. Please choose another.');return;}
         _doCreate();
-      } else {
-        _resetBtn(_fbErr(e.code||e));
-      }
-    });
+      },function(){_doCreate();});
+    },function(){_doCreate();});
+  }
+  _runChecks();
 }
 function APP_doLogout(){if(!confirm(t('confirm_logout')))return;try{localStorage.removeItem('atl_session_email');localStorage.removeItem('atl_session_time');}catch(e){}_auth.signOut();}
 function APP_signOut(){try{localStorage.removeItem('atl_session_email');localStorage.removeItem('atl_session_time');}catch(e){}_auth.signOut();}
